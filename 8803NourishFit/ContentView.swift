@@ -7,18 +7,39 @@
 
 import SwiftUI
 
+// MARK: - Main Content View
 struct ContentView: View {
+    @StateObject private var viewModel = AppViewModel()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        VStack(spacing: 0) {
+            // Main Content
+            TabView(selection: $viewModel.currentTab) {
+                HomeView(viewModel: viewModel)
+                    .tag(AppViewModel.TabSelection.home)
+                
+                SuggestionsView(viewModel: viewModel)
+                    .tag(AppViewModel.TabSelection.suggestions)
+                
+                CalendarView(viewModel: viewModel)
+                    .tag(AppViewModel.TabSelection.calendar)
+                
+                SettingsView(viewModel: viewModel)
+                    .tag(AppViewModel.TabSelection.settings)
+                
+                ProfileView(viewModel: viewModel)
+                    .tag(AppViewModel.TabSelection.profile)
+            }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+            
+            // Custom Tab Bar
+            CustomTabBar(selectedTab: $viewModel.currentTab)
         }
-        .padding()
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
 
+// MARK: - Preview
 #Preview {
     ContentView()
 }
