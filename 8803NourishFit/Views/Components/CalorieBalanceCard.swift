@@ -5,32 +5,46 @@ struct CalorieBalanceCard: View {
     let calorieBalance: CalorieBalance
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 20) {
             // Header
             Text("Today's Calorie Balance")
                 .font(.headline)
                 .fontWeight(.semibold)
             
             // Main Calorie Display
-            HStack(spacing: 20) {
-                // Intake
-                VStack(alignment: .leading, spacing: 4) {
+            VStack(spacing: 16) {
+                // Intake Section
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Intake")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("\(calorieBalance.intake)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    Text("kcal")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    
+                    HStack(alignment: .bottom, spacing: 8) {
+                        Text("\(calorieBalance.intake)")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundColor(.blue)
+                        
+                        Text("kcal")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
+                    }
                 }
                 
-                Spacer()
-                
-                // Progress Bar
+                // Progress Section
                 VStack(spacing: 8) {
+                    HStack {
+                        Text("Goal \(calorieBalance.goal) kcal")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Text("\(Int(calorieBalance.percentage * 100))% done")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
                     GeometryReader { geometry in
                         ZStack(alignment: .leading) {
                             // Background
@@ -51,72 +65,34 @@ struct CalorieBalanceCard: View {
                         }
                     }
                     .frame(height: 8)
-                    
-                    Text("\(Int(calorieBalance.percentage * 100))% done")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
                 
-                Spacer()
-                
-                // Goal
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Goal")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("\(calorieBalance.goal)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    Text("kcal")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            // Bottom Stats
-            HStack(spacing: 12) {
-                // Burned
-                HStack(spacing: 8) {
-                    Image(systemName: "flame.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                    VStack(alignment: .leading, spacing: 2) {
+                // Bottom Stats
+                HStack(spacing: 16) {
+                    // Burned
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Burned")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundColor(.secondary)
                         Text("\(calorieBalance.burned) kcal")
-                            .font(.caption)
+                            .font(.subheadline)
                             .fontWeight(.semibold)
                             .foregroundColor(.green)
                     }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(8)
-                
-                Spacer()
-                
-                // Remaining
-                HStack(spacing: 8) {
-                    Image(systemName: "clock.fill")
-                        .foregroundColor(.orange)
-                        .font(.caption)
-                    VStack(alignment: .leading, spacing: 2) {
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // Remaining
+                    VStack(alignment: .trailing, spacing: 4) {
                         Text("Remaining")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundColor(.secondary)
                         Text("\(calorieBalance.remaining) kcal")
-                            .font(.caption)
+                            .font(.subheadline)
                             .fontWeight(.semibold)
                             .foregroundColor(.orange)
                     }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.orange.opacity(0.1))
-                .cornerRadius(8)
             }
         }
         .padding(20)
@@ -140,5 +116,6 @@ struct CalorieBalanceCard: View {
     .padding()
     .background(Color.gray.opacity(0.1))
 }
+
 
 

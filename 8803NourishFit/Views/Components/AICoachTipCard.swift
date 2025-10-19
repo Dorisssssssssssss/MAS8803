@@ -18,6 +18,12 @@ struct AICoachTipCard: View {
                     .fontWeight(.semibold)
                 
                 Spacer()
+                
+                Button("See another option") {
+                    // Handle see another option
+                }
+                .font(.caption)
+                .foregroundColor(.blue)
             }
             
             // Tip Message
@@ -68,5 +74,6 @@ struct AICoachTipCard: View {
     .padding()
     .background(Color.gray.opacity(0.1))
 }
+
 
 

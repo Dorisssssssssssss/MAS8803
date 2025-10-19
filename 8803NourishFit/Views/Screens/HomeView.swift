@@ -27,25 +27,14 @@ struct HomeView: View {
                         )
                     }
                     
-                    // Progress Metrics Card
-                    if let progressMetrics = viewModel.progressMetrics {
-                        ProgressMetricsCard(progressMetrics: progressMetrics)
-                    }
-                    
-                    // Workout Time Chart Card
-                    if !viewModel.workoutTimeData.isEmpty {
-                        WorkoutTimeChartCard(workoutTimeData: viewModel.workoutTimeData)
-                    }
-                    
-                    // Notifications Section
-                    if let firstNotification = viewModel.unreadNotifications.first {
-                        NotificationCard(
-                            notification: firstNotification,
-                            onTap: {
-                                viewModel.markNotificationAsRead(firstNotification)
-                            }
-                        )
-                    }
+                    // Calendar Schedule Card
+                    CalendarScheduleCard(
+                        scheduleItems: viewModel.scheduleItems,
+                        onCustomizeTap: {
+                            // Handle customize tap
+                            print("Customize tapped")
+                        }
+                    )
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)

@@ -15,9 +15,6 @@ struct SuggestionsView: View {
                     // Today's Suggestion Card
                     todaysSuggestionCard
                     
-                    // Offline Plan B Section
-                    offlinePlanBSection
-                    
                     // Notification Section
                     notificationSection
                 }
@@ -254,46 +251,6 @@ struct SuggestionsView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
     }
     
-    // MARK: - Offline Plan B Section
-    private var offlinePlanBSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: "circle.dotted")
-                    .foregroundColor(.purple)
-                    .font(.title3)
-                
-                Text("Offline Plan B")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-            }
-            
-            VStack(spacing: 12) {
-                // No equipment substitution
-                OfflinePlanCard(
-                    icon: "house.fill",
-                    iconColor: .purple,
-                    title: "No equipment substitution",
-                    description: "Push-ups, squats, plank"
-                )
-                
-                // Aerobic Substitution
-                OfflinePlanCard(
-                    icon: "heart.fill",
-                    iconColor: .red,
-                    title: "Aerobic Substitution",
-                    description: "Running in place, jumping rope, high knees"
-                )
-                
-                // Stair/Walking Plan
-                OfflinePlanCard(
-                    icon: "figure.walk",
-                    iconColor: .green,
-                    title: "Stair/Walking Plan",
-                    description: "30 minutes of brisk walking or stair climbing"
-                )
-            }
-        }
-    }
     
     // MARK: - Notification Section
     private var notificationSection: some View {
@@ -356,42 +313,6 @@ struct SuggestionsView: View {
     }
 }
 
-// MARK: - Offline Plan Card
-struct OfflinePlanCard: View {
-    let icon: String
-    let iconColor: Color
-    let title: String
-    let description: String
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .foregroundColor(iconColor)
-                .font(.title3)
-                .frame(width: 30, height: 30)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
-                .font(.caption)
-        }
-        .padding(16)
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-    }
-}
 
 // MARK: - Notification Item
 struct NotificationItem: View {

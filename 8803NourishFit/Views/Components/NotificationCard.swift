@@ -159,3 +159,4 @@ struct NotificationCard: View {
     .background(Color.gray.opacity(0.1))
 }
 
+

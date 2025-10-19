@@ -19,9 +19,6 @@ struct CalendarView: View {
                     
                     // Today's Workout Record Section
                     todaysWorkoutRecordSection
-                    
-                    // Body Metrics Section
-                    bodyMetricsSection
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
@@ -103,14 +100,6 @@ struct CalendarView: View {
                     title: "Workout",
                     icon: "dumbbell.fill",
                     backgroundColor: Color.green.opacity(0.2),
-                    iconColor: .white
-                )
-                
-                // Body Metrics Button
-                QuickLogButton(
-                    title: "Body Metrics",
-                    icon: "hexagon.fill",
-                    backgroundColor: Color.purple.opacity(0.2),
                     iconColor: .white
                 )
             }
@@ -242,50 +231,6 @@ struct CalendarView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
     }
     
-    // MARK: - Body Metrics Section
-    private var bodyMetricsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Body Metrics")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Button("Edit") {
-                    // Edit body metrics
-                }
-                .font(.caption)
-                .foregroundColor(.blue)
-            }
-            
-            HStack(spacing: 12) {
-                // Weight Card
-                BodyMetricCard(
-                    icon: "scalemass.fill",
-                    iconColor: .blue,
-                    backgroundColor: Color.blue.opacity(0.1),
-                    period: "This Week",
-                    value: "68.5",
-                    unit: "Weight (kg)"
-                )
-                
-                // Waist Card
-                BodyMetricCard(
-                    icon: "ruler.fill",
-                    iconColor: .green,
-                    backgroundColor: Color.green.opacity(0.1),
-                    period: "This Week",
-                    value: "74",
-                    unit: "Waist (cm)"
-                )
-            }
-        }
-        .padding(20)
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
-    }
     
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
@@ -436,45 +381,6 @@ struct WorkoutItemRow: View {
     }
 }
 
-// MARK: - Body Metric Card
-struct BodyMetricCard: View {
-    let icon: String
-    let iconColor: Color
-    let backgroundColor: Color
-    let period: String
-    let value: String
-    let unit: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(iconColor)
-                    .font(.title3)
-                
-                Spacer()
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(period)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text(value)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Text(unit)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(16)
-        .background(backgroundColor)
-        .cornerRadius(12)
-        .frame(maxWidth: .infinity)
-    }
-}
 
 
 

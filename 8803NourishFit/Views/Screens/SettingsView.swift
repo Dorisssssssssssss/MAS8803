@@ -3,32 +3,29 @@ import SwiftUI
 // MARK: - Settings View
 struct SettingsView: View {
     @ObservedObject var viewModel: AppViewModel
+    @State private var selectedDate = Date()
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    headerView
-                    
-                    // Weekly Training Overview Section
-                    weeklyTrainingOverviewSection
-                    
-                    // Calendar Schedule Section
-                    calendarScheduleSection
-                    
-                    // AI Prediction Adjustment Section
-                    aiPredictionAdjustmentSection
-                    
-                    // Quick Operation Section
-                    quickOperationSection
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                headerView
+                
+                // Card #1: Weekly Training Overview
+                WeeklyTrainingOverviewCard()
+                
+                // Card #2: Weekly Calorie Overview
+                WeeklyCalorieOverviewCard()
+                
+                // Card #3: Progress Calendar
+                ProgressCalendarCard(selectedDate: $selectedDate)
             }
-            .background(Color.gray.opacity(0.05))
-            .navigationBarHidden(true)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 100) // Space for tab bar
         }
+        .background(Color.gray.opacity(0.05))
+        .navigationBarHidden(true)
     }
     
     // MARK: - Header View
@@ -64,7 +61,7 @@ struct SettingsView: View {
                 Button(action: {
                     // Camera action
                 }) {
-                    Image(systemName: "camera")
+                    Image(systemName: "camera.fill")
                         .foregroundColor(.gray)
                         .font(.title3)
                 }
@@ -80,11 +77,31 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
+        .background(Color.white)
     }
     
-    // MARK: - Weekly Training Overview Section
-    private var weeklyTrainingOverviewSection: some View {
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Card #1: Weekly Training Overview
+struct WeeklyTrainingOverviewCard: View {
+    let trainingData = [
+        ("Mon", 45, 60),
+        ("Tue", 30, 60),
+        ("Wed", 60, 60),
+        ("Thu", 25, 60),
+        ("Fri", 50, 60),
+        ("Sat", 40, 60),
+        ("Sun", 35, 60)
+    ]
+    
+    var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Header
             HStack {
                 Text("Weekly Training Overview")
                     .font(.headline)
@@ -97,348 +114,330 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
             
-            VStack(spacing: 12) {
-                // Strength Training
-                TrainingProgressRow(
-                    title: "Strength Training",
-                    percentage: 60,
-                    color: .blue
-                )
-                
-                // Aerobic Training
-                TrainingProgressRow(
-                    title: "Aerobic Training",
-                    percentage: 40,
-                    color: .green
-                )
-            }
-            
-            // AI Dynamic Adjustment Range
-            HStack(spacing: 12) {
-                Image(systemName: "robot")
-                    .foregroundColor(.blue)
-                    .font(.title3)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("AI Dynamic Adjustment Range")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+            // Bar Chart with Grid
+            GeometryReader { geometry in
+                ZStack {
+                    // Grid lines
+                    VStack(spacing: 0) {
+                        ForEach(0..<5) { index in
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(height: 1)
+                                .offset(y: CGFloat(index) * geometry.size.height / 4)
+                        }
+                    }
                     
-                    HStack(spacing: 16) {
-                        Text("Duration: ±20%")
-                            .font(.caption)
-                            .foregroundColor(.blue)
+                    // Y-axis labels
+                    HStack {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach([0, 20, 40, 60, 80], id: \.self) { value in
+                                Text("\(value)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .frame(height: geometry.size.height / 4, alignment: .bottom)
+                            }
+                        }
+                        .frame(width: 30)
                         
-                        Text("Intensity: ±20%")
-                            .font(.caption)
-                            .foregroundColor(.blue)
+                        // Chart area
+                        HStack(alignment: .bottom, spacing: 8) {
+                            ForEach(trainingData, id: \.0) { day, actual, target in
+                                VStack(spacing: 4) {
+                                    VStack(spacing: 2) {
+                                        // Target bar (green)
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.green.opacity(0.3))
+                                            .frame(width: 20, height: CGFloat(target) / 80 * (geometry.size.height - 20))
+                                        
+                                        // Actual bar (blue)
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.blue)
+                                            .frame(width: 20, height: CGFloat(actual) / 80 * (geometry.size.height - 20))
+                                    }
+                                    
+                                    Text(day)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
-                
-                Spacer()
             }
-            .padding(12)
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(8)
+            .frame(height: 120)
         }
         .padding(20)
         .background(Color.white)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
     }
+}
+
+// MARK: - Card #2: Weekly Calorie Overview
+struct WeeklyCalorieOverviewCard: View {
+    let calorieData = [2200, 2400, 2100, 2500, 2300, 2600, 2400]
+    let targetCalories = 2400
     
-    // MARK: - Calendar Schedule Section
-    private var calendarScheduleSection: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Header
             HStack {
-                Text("Calendar Schedule")
+                Text("Weekly Calorie Overview")
                     .font(.headline)
                     .fontWeight(.semibold)
                 
                 Spacer()
                 
-                Button("Customize") {
-                    // Customize action
-                }
-                .font(.caption)
-                .foregroundColor(.blue)
-            }
-            
-            VStack(spacing: 12) {
-                // Monday 26
-                ScheduleRow(
-                    day: "Monday 26",
-                    title: "Strength Training",
-                    time: "9:00 a.m - 10:30 a.m",
-                    status: .normal,
-                    color: .blue
-                )
-                
-                // Tuesday 27 - Time Conflict
-                ScheduleRow(
-                    day: "Tuesday 27",
-                    title: "Time Conflict",
-                    subtitle: "Meeting vs Aerobic Training",
-                    time: "",
-                    status: .conflict,
-                    color: .red
-                )
-                
-                // Wednesday 26
-                ScheduleRow(
-                    day: "Wednesday 26",
-                    title: "Aerobic Training",
-                    time: "7:00 p.m - 8:00 p.m",
-                    status: .normal,
-                    color: .green
-                )
-            }
-        }
-        .padding(20)
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
-    }
-    
-    // MARK: - AI Prediction Adjustment Section
-    private var aiPredictionAdjustmentSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("AI Prediction Adjustment")
-                .font(.headline)
-                .fontWeight(.semibold)
-            
-            VStack(spacing: 12) {
-                // Historical Behavior
-                PredictionCard(
-                    title: "Historical Behavior",
-                    accuracy: "85% Accuracy",
-                    description: "You typically reduce your training intensity by 15% on Thursdays. It is recommended to adjust your schedule in advance.",
-                    backgroundColor: Color.blue.opacity(0.1),
-                    textColor: .blue
-                )
-                
-                // Schedule Conflict
-                PredictionCard(
-                    title: "Schedule conflict",
-                    accuracy: "2 Conflicts",
-                    description: "There may be overtime on Friday evening, so it is recommended to reschedule the training to Saturday morning.",
-                    backgroundColor: Color.yellow.opacity(0.1),
-                    textColor: .orange
-                )
-            }
-        }
-        .padding(20)
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
-    }
-    
-    // MARK: - Quick Operation Section
-    private var quickOperationSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Quick Operation")
-                .font(.headline)
-                .fontWeight(.semibold)
-            
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                QuickOperationButton(
-                    title: "Regenerate",
-                    icon: "arrow.clockwise",
-                    color: .blue
-                )
-                
-                QuickOperationButton(
-                    title: "Edit",
-                    icon: "pencil",
-                    color: .yellow
-                )
-                
-                QuickOperationButton(
-                    title: "Share",
-                    icon: "square.and.arrow.up",
-                    color: .green
-                )
-                
-                QuickOperationButton(
-                    title: "History",
-                    icon: "clock",
-                    color: .gray
-                )
-            }
-        }
-        .padding(20)
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
-    }
-}
-
-// MARK: - Training Progress Row
-struct TrainingProgressRow: View {
-    let title: String
-    let percentage: Int
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Spacer()
-                
-                Text("\(percentage)%")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.secondary)
-            }
-            
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(height: 6)
-                    
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [color, color.opacity(0.7)]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: min(CGFloat(percentage) / 100.0 * geometry.size.width, geometry.size.width), height: 6)
-                }
-            }
-            .frame(height: 6)
-        }
-    }
-}
-
-// MARK: - Schedule Row
-struct ScheduleRow: View {
-    let day: String
-    let title: String
-    var subtitle: String = ""
-    let time: String
-    let status: ScheduleStatus
-    let color: Color
-    
-    enum ScheduleStatus {
-        case normal
-        case conflict
-    }
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(day)
+                Text("Week 23")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(status == .conflict ? .red : .primary)
-                
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundColor(.red)
+            }
+            
+            // Line Chart with Grid
+            GeometryReader { geometry in
+                ZStack {
+                    // Grid lines
+                    VStack(spacing: 0) {
+                        ForEach(0..<5) { index in
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(height: 1)
+                                .offset(y: CGFloat(index) * geometry.size.height / 4)
+                        }
+                    }
+                    
+                    // Y-axis labels
+                    HStack {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach([0, 700, 1400, 2100, 2800], id: \.self) { value in
+                                Text("\(value)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .frame(height: geometry.size.height / 4, alignment: .bottom)
+                            }
+                        }
+                        .frame(width: 30)
+                        
+                        // Chart area
+                        ZStack {
+                            // Target line (dashed gray)
+                            Path { path in
+                                let targetY = geometry.size.height - (CGFloat(targetCalories) / 2800) * geometry.size.height
+                                path.move(to: CGPoint(x: 0, y: targetY))
+                                path.addLine(to: CGPoint(x: geometry.size.width, y: targetY))
+                            }
+                            .stroke(Color.gray, style: StrokeStyle(lineWidth: 1, dash: [5]))
+                            
+                            // Data line
+                            Path { path in
+                                for (index, calories) in calorieData.enumerated() {
+                                    let x = CGFloat(index) / CGFloat(calorieData.count - 1) * geometry.size.width
+                                    let y = geometry.size.height - (CGFloat(calories) / 2800) * geometry.size.height
+                                    
+                                    if index == 0 {
+                                        path.move(to: CGPoint(x: x, y: y))
+                                    } else {
+                                        path.addLine(to: CGPoint(x: x, y: y))
+                                    }
+                                }
+                            }
+                            .stroke(Color.blue, lineWidth: 2)
+                            
+                            // Data points
+                            ForEach(Array(calorieData.enumerated()), id: \.offset) { index, calories in
+                                let x = CGFloat(index) / CGFloat(calorieData.count - 1) * geometry.size.width
+                                let y = geometry.size.height - (CGFloat(calories) / 2800) * geometry.size.height
+                                
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 6, height: 6)
+                                    .position(x: x, y: y)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
                 }
-                
-                if !time.isEmpty {
-                    Text(time)
+            }
+            .frame(height: 100)
+            
+            // Bottom Stats
+            HStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Weekly Average")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    Text("2,429 cal/day")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Target")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("2,400 cal/day")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Variance")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("+29 cal/day")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
                 }
             }
-            
-            Spacer()
-            
-            if status == .conflict {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.red)
-                    .font(.title3)
-            } else {
-                Circle()
-                    .fill(color)
-                    .frame(width: 8, height: 8)
-            }
         }
-        .padding(12)
-        .background(status == .conflict ? Color.red.opacity(0.1) : Color.clear)
-        .cornerRadius(8)
+        .padding(20)
+        .background(Color.white)
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
     }
 }
 
-// MARK: - Prediction Card
-struct PredictionCard: View {
-    let title: String
-    let accuracy: String
-    let description: String
-    let backgroundColor: Color
-    let textColor: Color
+// MARK: - Card #3: Progress Calendar
+struct ProgressCalendarCard: View {
+    @Binding var selectedDate: Date
+    @State private var currentMonth = Date()
+    
+    private let calendar = Calendar.current
+    private let dateFormatter = DateFormatter()
+    
+    init(selectedDate: Binding<Date>) {
+        // Set initial month to October 2020
+        var components = DateComponents()
+        components.year = 2020
+        components.month = 10
+        components.day = 1
+        let october2020 = Calendar.current.date(from: components) ?? Date()
+        
+        // Set selected date to October 8, 2020
+        components.day = 8
+        let october8 = Calendar.current.date(from: components) ?? Date()
+        
+        self._selectedDate = Binding(
+            get: { october8 },
+            set: { _ in }
+        )
+        self._currentMonth = State(initialValue: october2020)
+    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header with month navigation
             HStack {
-                Text(title)
-                    .font(.subheadline)
+                Text("Progress")
+                    .font(.headline)
                     .fontWeight(.semibold)
                 
                 Spacer()
                 
-                Text(accuracy)
-                    .font(.caption)
-                    .foregroundColor(textColor)
+                HStack(spacing: 16) {
+                    Button(action: {
+                        withAnimation {
+                            currentMonth = calendar.date(byAdding: .month, value: -1, to: currentMonth) ?? currentMonth
+                        }
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(.gray)
+                            .font(.title3)
+                    }
+                    
+                    Text(monthYearString(from: currentMonth))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    Button(action: {
+                        withAnimation {
+                            currentMonth = calendar.date(byAdding: .month, value: 1, to: currentMonth) ?? currentMonth
+                        }
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.gray)
+                            .font(.title3)
+                    }
+                }
             }
             
-            Text(description)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(3)
-        }
-        .padding(12)
-        .background(backgroundColor)
-        .cornerRadius(8)
-    }
-}
-
-// MARK: - Quick Operation Button
-struct QuickOperationButton: View {
-    let title: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        Button(action: {
-            // Action
-        }) {
+            // Calendar
             VStack(spacing: 8) {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                    .font(.title3)
-                    .frame(width: 24, height: 24)
+                // Weekday headers
+                HStack {
+                    ForEach(["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"], id: \.self) { day in
+                        Text(day)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
                 
-                Text(title)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                // Calendar grid
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
+                    ForEach(calendarDays, id: \.self) { date in
+                        if let date = date {
+                            Button(action: {
+                                selectedDate = date
+                            }) {
+                                Text("\(calendar.component(.day, from: date))")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(isSelectedDate(date) ? .white : .primary)
+                                    .frame(width: 32, height: 32)
+                                    .background(
+                                        Circle()
+                                            .fill(isSelectedDate(date) ? Color.red : Color.clear)
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        } else {
+                            Text("")
+                                .frame(width: 32, height: 32)
+                        }
+                    }
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(Color.gray.opacity(0.05))
-            .cornerRadius(12)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(20)
+        .background(Color.white)
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
+    }
+    
+    private var calendarDays: [Date?] {
+        let startOfMonth = calendar.dateInterval(of: .month, for: currentMonth)?.start ?? currentMonth
+        let range = calendar.range(of: .day, in: .month, for: currentMonth) ?? 1..<32
+        let firstWeekday = calendar.component(.weekday, from: startOfMonth)
+        let adjustedFirstWeekday = (firstWeekday + 5) % 7 // Convert to Monday = 0
+        
+        var days: [Date?] = []
+        
+        // Add empty cells for days before the first day of the month
+        for _ in 0..<adjustedFirstWeekday {
+            days.append(nil)
+        }
+        
+        // Add days of the month
+        for day in range {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: startOfMonth) {
+                days.append(date)
+            }
+        }
+        
+        return days
+    }
+    
+    private func isSelectedDate(_ date: Date) -> Bool {
+        calendar.isDate(date, inSameDayAs: selectedDate)
+    }
+    
+    private func monthYearString(from date: Date) -> String {
+        dateFormatter.dateFormat = "MMMM yyyy"
+        return dateFormatter.string(from: date)
     }
 }
 

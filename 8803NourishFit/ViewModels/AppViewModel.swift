@@ -18,6 +18,7 @@ class AppViewModel: ObservableObject {
     @Published var notifications: [AppNotification] = []
     @Published var suggestions: [Suggestion] = []
     @Published var calendarEvents: [CalendarEvent] = []
+    @Published var scheduleItems: [ScheduleItem] = []
     @Published var settings: AppSettings = AppSettings()
     
     enum TabSelection: String, CaseIterable {
@@ -149,6 +150,34 @@ class AppViewModel: ObservableObject {
                 date: Date().addingTimeInterval(86400),
                 duration: 0,
                 type: .rest
+            )
+        ]
+        
+        // Sample schedule items
+        scheduleItems = [
+            ScheduleItem(
+                dayOfWeek: "MON",
+                dayNumber: "26",
+                title: "Strength Training",
+                time: "9:00 a.m - 10:30 a.m",
+                description: nil,
+                status: .scheduled
+            ),
+            ScheduleItem(
+                dayOfWeek: "TUE",
+                dayNumber: "27",
+                title: "Time Conflict",
+                time: nil,
+                description: "Meeting vs Aerobic Training",
+                status: .conflict
+            ),
+            ScheduleItem(
+                dayOfWeek: "WED",
+                dayNumber: "26",
+                title: "Aerobic Training",
+                time: "7:00 p.m - 8:00 p.m",
+                description: nil,
+                status: .scheduled
             )
         ]
     }
