@@ -2,7 +2,17 @@ import SwiftUI
 
 // MARK: - Calorie Balance Card Component
 struct CalorieBalanceCard: View {
-    let calorieBalance: CalorieBalance
+    @ObservedObject var viewModel: AppViewModel
+    
+    private var calorieBalance: CalorieBalance {
+        CalorieBalance(
+            date: Date(),
+            intake: viewModel.totalCaloriesToday,
+            goal: 2100, // Default goal, can be made configurable
+            burned: 0, // Will be updated when workout data is available
+            remaining: max(0, 2100 - viewModel.totalCaloriesToday)
+        )
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -104,17 +114,9 @@ struct CalorieBalanceCard: View {
 
 // MARK: - Preview
 #Preview {
-    CalorieBalanceCard(
-        calorieBalance: CalorieBalance(
-            date: Date(),
-            intake: 1847,
-            goal: 2100,
-            burned: 2234,
-            remaining: 253
-        )
-    )
-    .padding()
-    .background(Color.gray.opacity(0.1))
+    CalorieBalanceCard(viewModel: AppViewModel())
+        .padding()
+        .background(Color.gray.opacity(0.1))
 }
 
 

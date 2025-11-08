@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
 import Combine
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Main App ViewModel
 class AppViewModel: ObservableObject {
@@ -20,6 +22,13 @@ class AppViewModel: ObservableObject {
     @Published var calendarEvents: [CalendarEvent] = []
     @Published var scheduleItems: [ScheduleItem] = []
     @Published var settings: AppSettings = AppSettings()
+    @Published var isAuthenticated: Bool = false
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
+    @Published var todayMeals: [MealResponse] = []
+    
+    private var cancellables = Set<AnyCancellable>()
+    private let networkService = NetworkService.shared
     
     enum TabSelection: String, CaseIterable {
         case home = "Home"
@@ -42,6 +51,9 @@ class AppViewModel: ObservableObject {
     init() {
         // Initialize with sample data
         loadSampleData()
+        
+        // Check authentication status
+        checkAuthenticationStatus()
     }
     
         // MARK: - Sample Data
@@ -222,5 +234,86 @@ class AppViewModel: ObservableObject {
     
     var todayEvents: [CalendarEvent] {
         calendarEvents.filter { Calendar.current.isDateInToday($0.date) }
+    }
+    
+    // MARK: - Authentication
+    private func checkAuthenticationStatus() {
+        isAuthenticated = Auth.auth().currentUser != nil
+    }
+    
+    func signInAnonymously() {
+        isLoading = true
+        errorMessage = nil
+        
+        // 直接设置认证状态，跳过Firebase认证
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.isLoading = false
+            self.isAuthenticated = true
+            self.loadTodayMeals()
+        }
+    }
+    
+    // MARK: - Food Recognition
+    func recognizeFood(image: UIImage, mealType: String) {
+        print("🍎 Starting food recognition for meal type: \(mealType)")
+        isLoading = true
+        errorMessage = nil
+        
+        networkService.recognizeFood(image: image, mealType: mealType)
+            .flatMap { [weak self] foodResponse -> AnyPublisher<Void, Error> in
+                guard let self = self else {
+                    return Fail(error: NetworkError.apiError("ViewModel deallocated")).eraseToAnyPublisher()
+                }
+                return self.networkService.saveMealToFirestore(mealData: foodResponse, mealType: mealType)
+            }
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    DispatchQueue.main.async {
+                        self?.isLoading = false
+                        if case .failure(let error) = completion {
+                            self?.errorMessage = error.localizedDescription
+                        }
+                    }
+                },
+                receiveValue: { [weak self] _ in
+                    DispatchQueue.main.async {
+                        self?.loadTodayMeals()
+                    }
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    func loadTodayMeals() {
+        networkService.getTodayMealsFromFirestore()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case .failure(let error) = completion {
+                        self?.errorMessage = error.localizedDescription
+                    }
+                },
+                receiveValue: { [weak self] meals in
+                    self?.todayMeals = meals
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    // MARK: - Computed Properties for UI
+    var totalCaloriesToday: Int {
+        todayMeals.flatMap { $0.items }.reduce(0) { $0 + $1.calories }
+    }
+    
+    var totalProteinToday: Double {
+        todayMeals.flatMap { $0.items }.reduce(0) { $0 + $1.protein }
+    }
+    
+    var totalCarbsToday: Double {
+        todayMeals.flatMap { $0.items }.reduce(0) { $0 + $1.carbs }
+    }
+    
+    var totalFatToday: Double {
+        todayMeals.flatMap { $0.items }.reduce(0) { $0 + $1.fat }
     }
 }
