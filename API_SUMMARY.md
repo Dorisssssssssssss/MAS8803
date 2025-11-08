@@ -1,58 +1,50 @@
-# NourishFit 后端 API 接口概览
+# NourishFit 数据访问概览（MVP：Firebase 优先）
 
-## 📋 接口总览
+## 📋 总览
 
-本应用需要接入以下 **10 大类 50+ 个** 后端 API 接口。
-
----
-
-## 🔐 1. 用户认证与管理 (4 个接口)
-
-| 接口 | 方法 | 端点 | 用途 |
-|------|------|------|------|
-| 用户注册 | POST | `/auth/register` | 新用户注册 |
-| 用户登录 | POST | `/auth/login` | 用户登录获取 token |
-| 获取用户资料 | GET | `/users/profile` | 获取当前用户信息 |
-| 更新用户资料 | PUT | `/users/profile` | 更新用户信息（姓名、目标等）|
+课堂版 MVP 不再自建 REST 后端。除 Coze 图像识别通过 Cloud Function 代理外，其余功能全部直接使用 Firebase SDK（Auth + Firestore）。
 
 ---
 
-## 🍎 2. 营养追踪 (4 个接口)
+## 🔐 1. 用户认证与管理（Firebase）
 
 | 接口 | 方法 | 端点 | 用途 |
 |------|------|------|------|
-| 获取今日卡路里平衡 | GET | `/nutrition/calorie-balance/today` | 显示首页卡路里卡片 |
-| 记录食物摄入 | POST | `/nutrition/meals` | 记录用户吃了什么 |
-| 获取今日营养摄入 | GET | `/nutrition/meals/today` | 显示 Log 页面的营养记录 |
-| 拍照识别食物 | POST | `/nutrition/food-recognition` | AI 识别食物照片 |
+| 用户注册/登录 | Firebase Auth | 直接在 iOS 调用 | Email/Password 登录注册 |
+| 用户资料 | Firestore | `users/{uid}` | iOS 直接读写 |
+
+---
+
+## 🍎 2. 营养追踪（Firestore）
+
+| 接口 | 方法 | 端点 | 用途 |
+|------|------|------|------|
+| 今日卡路里/餐食 | Firestore | `meals`（按日查询聚合） | 首页卡路里卡片、今日餐食 |
+| 记录食物摄入 | Firestore | `meals` | 记录一餐 |
+| 拍照识别食物 | Cloud Function | `recognize_food_proxy` | 代理 Coze 分析图片 |
 
 **关键视图**: `HomeView`, `CalendarView`
 
 ---
 
-## 💪 3. 锻炼追踪 (4 个接口)
+## 💪 3. 锻炼追踪（Firestore）
 
 | 接口 | 方法 | 端点 | 用途 |
 |------|------|------|------|
-| 获取今日锻炼记录 | GET | `/workouts/today` | 显示今日完成的锻炼 |
-| 记录锻炼 | POST | `/workouts` | 保存用户的锻炼数据 |
-| 完成锻炼项目 | PUT | `/workouts/exercises/{id}/complete` | 标记某个动作为完成 |
-| 获取锻炼历史 | GET | `/workouts/history` | 获取锻炼时长图表数据 |
+| 今日锻炼 | Firestore | `workouts`（按日查询） | 今日锻炼汇总 |
+| 记录锻炼 | Firestore | `workouts` | 写入 exercises 列表 |
+| 锻炼历史 | Firestore | `workouts`（按区间查询） | 训练时长图表 |
 
 **关键视图**: `HomeView`, `CalendarView`
 
 ---
 
-## 🤖 4. AI 教练建议 (5 个接口)
+## 🤖 4. AI 教练（MVP）
 
 | 接口 | 方法 | 端点 | 用途 |
 |------|------|------|------|
-| 获取今日 AI 建议 | GET | `/ai-coach/suggestions/today` | 显示 AI 教练的个性化建议 |
-| 接受建议 | POST | `/ai-coach/suggestions/{id}/accept` | 用户接受 AI 建议 |
-| 重新生成建议 | POST | `/ai-coach/suggestions/{id}/regenerate` | 用户要求重新生成建议 |
-| 编辑建议 | PUT | `/ai-coach/suggestions/{id}` | 用户自定义修改建议 |
-| 延迟建议 | POST | `/ai-coach/suggestions/{id}/delay` | 推迟建议执行 |
-| 获取离线备选方案 | GET | `/ai-coach/offline-plans` | 无器械/有氧替代方案 |
+| 建议内容 | 本地示例/客户端逻辑 | - | 用于演示，非后端生成 |
+| 食物识别 | Cloud Function | `recognize_food_proxy` | 代理 Coze |
 
 **关键视图**: `HomeView`, `SuggestionsView`
 
@@ -60,73 +52,63 @@
 
 ---
 
-## 📊 5. 进度追踪 (3 个接口)
+## 📊 5. 进度追踪（Firestore）
 
 | 接口 | 方法 | 端点 | 用途 |
 |------|------|------|------|
-| 获取本周进度指标 | GET | `/progress/metrics/week` | 显示训练天数、体重变化等 |
-| 记录身体指标 | POST | `/progress/body-metrics` | 记录体重、腰围等 |
-| 获取身体指标历史 | GET | `/progress/body-metrics` | 查看身体数据趋势 |
+| 本周进度 | 客户端聚合 | `workouts`/`meals` | 客户端汇总训练天数/宏量 |
+| 身体指标 | Firestore | `metrics` | 记录/查询体重、腰围 |
 
 **关键视图**: `HomeView` (ProgressMetricsCard)
 
 ---
 
-## 🔔 6. 通知系统 (4 个接口)
+## 🔔 6. 通知（MVP）
 
 | 接口 | 方法 | 端点 | 用途 |
 |------|------|------|------|
-| 获取未读通知 | GET | `/notifications/unread` | 获取未读通知列表 |
-| 标记通知为已读 | PUT | `/notifications/{id}/read` | 用户查看通知后标记 |
-| 获取通知历史 | GET | `/notifications/history` | 查看所有历史通知 |
-| 更新通知设置 | PUT | `/notifications/settings` | 设置通知频率、风格等 |
+| 通知 | 本地示例 | - | 可选，不对后端 |
 
 **关键视图**: `HomeView`, `SuggestionsView`, `ProfileView`
 
 ---
 
-## 📅 7. 日历与计划 (3 个接口)
+## 📅 7. 日历与计划（Firestore）
 
 | 接口 | 方法 | 端点 | 用途 |
 |------|------|------|------|
-| 获取日历事件 | GET | `/calendar/events` | 获取训练计划和事件 |
-| 创建日历事件 | POST | `/calendar/events` | 创建新的训练计划 |
-| 完成事件 | PUT | `/calendar/events/{id}/complete` | 标记事件完成 |
+| 日历事件 | Firestore | `calendar_events` | 读写、完成标记 |
 
 **关键视图**: `CalendarView`
 
 ---
 
-## 🔗 8. 数据集成 (3 个接口)
+## 🔗 8. 数据集成（可选）
 
 | 接口 | 方法 | 端点 | 用途 |
 |------|------|------|------|
-| 连接 Apple Health | POST | `/integrations/apple-health/connect` | 授权连接 Apple Health |
-| 同步健康数据 | POST | `/integrations/apple-health/sync` | 同步步数、卡路里等数据 |
-| 断开集成 | DELETE | `/integrations/{provider}/disconnect` | 断开第三方数据源 |
+| Apple Health | iOS 本机 | - | 直接在设备侧处理 |
 
 **关键视图**: `ProfileView`
 
 ---
 
-## ⚙️ 9. 设置管理 (4 个接口)
+## ⚙️ 9. 设置（Firestore）
 
 | 接口 | 方法 | 端点 | 用途 |
 |------|------|------|------|
-| 获取应用设置 | GET | `/settings` | 获取所有设置项 |
-| 更新设置 | PUT | `/settings` | 更新可访问性、隐私等设置 |
-| 导出用户数据 | POST | `/settings/export-data` | GDPR 合规：导出用户数据 |
-| 删除账户 | DELETE | `/users/account` | 永久删除用户账户 |
+| 设置 | Firestore | `users/{uid}/meta/settings` | 读写设置 |
+| 导出 | 占位 | - | MVP 返回本地占位 |
 
 **关键视图**: `ProfileView`, `SettingsView`
 
 ---
 
-## 🔌 10. WebSocket 实时通知 (1 个连接)
+## 🔌 10. 实时（略）
 
 | 类型 | 端点 | 用途 |
 |------|------|------|
-| WebSocket 连接 | `ws://api.nourishfit.com/v1/ws` | 实时推送通知、建议更新等 |
+| 如需实时 | 可后续补充 | - |
 
 **用途**: 
 - 实时推送新的 AI 建议
@@ -135,38 +117,26 @@
 
 ---
 
-## 📱 各页面所需 API 映射
+## 📱 页面与数据源映射（MVP）
 
 ### HomeView (首页)
-- ✅ 获取用户资料
-- ✅ 获取今日卡路里平衡
-- ✅ 获取今日 AI 建议
-- ✅ 获取本周进度指标
-- ✅ 获取锻炼历史（图表）
-- ✅ 获取未读通知
+- 用户资料: Firestore `users/{uid}`
+- 今日卡路里/餐食: Firestore `meals`（客户端聚合）
+- AI 建议: 本地示例
+- 周进度/历史: Firestore `workouts` + 客户端聚合
 
 ### SuggestionsView (AI 教练页)
-- ✅ 获取今日 AI 建议
-- ✅ 接受/重新生成/编辑/延迟建议
-- ✅ 获取离线备选方案
-- ✅ 获取通知历史
+- 建议卡片: 本地示例
 
 ### CalendarView (记录页)
-- ✅ 获取今日营养摄入
-- ✅ 记录食物摄入
-- ✅ 拍照识别食物
-- ✅ 获取今日锻炼记录
-- ✅ 记录锻炼
-- ✅ 完成锻炼项目
-- ✅ 记录身体指标
+- 今日营养/记录一餐: Firestore `meals`
+- 拍照识别食物: Cloud Function 代理
+- 今日锻炼/记录锻炼: Firestore `workouts`
+- 身体指标: Firestore `metrics`
 
 ### ProfileView (个人资料页)
-- ✅ 获取用户资料
-- ✅ 更新用户资料
-- ✅ 管理数据集成
-- ✅ 获取/更新设置
-- ✅ 导出数据
-- ✅ 删除账户
+- 资料: Firestore `users/{uid}`
+- 设置: Firestore `users/{uid}/meta/settings`
 
 ---
 

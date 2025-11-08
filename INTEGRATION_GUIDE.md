@@ -1,6 +1,6 @@
-# API 集成指南
+# 集成指南（MVP：Firebase 优先）
 
-本指南说明如何在 NourishFit 应用中集成后端 API。
+本指南说明如何在 NourishFit 应用中集成 Firebase（Auth + Firestore）与 Cloud Function 代理（Coze）。
 
 ## 目录
 
@@ -8,33 +8,27 @@
 2. [在 ViewModel 中使用](#在-viewmodel-中使用)
 3. [错误处理](#错误处理)
 4. [离线支持](#离线支持)
-5. [WebSocket 实时通知](#websocket-实时通知)
 
 ---
 
 ## 快速开始
 
-### 1. 配置基础 URL
+### 1. Firebase 控制台
+- 启用 Authentication（Email/Password）
+- 启用 Firestore（Production 模式），设置规则仅允许本人读写 `users/{uid}`、`meals`、`workouts`、`metrics`、`calendar_events` 等
 
-在 `NetworkService.swift` 中修改基础 URL：
+### 2. iOS 侧添加 Firebase SDK
+- 项目已通过 SPM 引入 `firebase-ios-sdk`
+- 在 App 启动时配置 Firebase（`_803NourishFitApp.swift` 已包含）
 
-```swift
-private let baseURL = "https://api.nourishfit.com/v1"  // 替换为你的实际后端地址
-```
-
-### 2. 设置认证令牌
-
-用户登录后，保存并设置访问令牌：
-
-```swift
-NetworkService.shared.setAccessToken(accessToken)
-```
+### 3. Cloud Function（Coze 代理）
+- 部署 `recognize_food_proxy` 函数并配置 Coze 密钥（环境变量/Functions config）
 
 ---
 
 ## 在 ViewModel 中使用
 
-### 示例 1: 更新 AppViewModel 以加载真实数据
+### 示例：从 Firestore 加载用户资料/餐食等
 
 修改 `AppViewModel.swift`：
 
@@ -63,33 +57,21 @@ class AppViewModel: ObservableObject {
     // MARK: - Load Data
     func loadData() {
         isLoading = true
-        
-        // 并行加载多个数据
-        Publishers.Zip4(
-            loadUserProfile(),
-            loadTodayCalorieBalance(),
-            loadTodayAISuggestion(),
-            loadWeeklyMetrics()
+        Publishers.Zip(
+            NetworkService.shared.getUserProfile(),
+            NetworkService.shared.getTodayCalorieBalance()
         )
         .sink(
             receiveCompletion: { [weak self] completion in
                 self?.isLoading = false
-                if case .failure(let error) = completion {
-                    self?.errorMessage = error.localizedDescription
-                }
+                if case .failure(let error) = completion { self?.errorMessage = error.localizedDescription }
             },
-            receiveValue: { [weak self] (profile, calories, aiTip, metrics) in
+            receiveValue: { [weak self] (profile, calories) in
                 self?.userProfile = profile
                 self?.calorieBalance = calories
-                self?.aiCoachTip = aiTip
-                self?.progressMetrics = metrics
             }
         )
         .store(in: &cancellables)
-        
-        // 加载其他数据
-        loadWorkoutHistory()
-        loadUnreadNotifications()
     }
     
     // MARK: - Individual Load Methods
@@ -102,17 +84,7 @@ class AppViewModel: ObservableObject {
         return NetworkService.shared.getTodayCalorieBalance()
     }
     
-    private func loadTodayAISuggestion() -> AnyPublisher<AICoachTip, Error> {
-        return NetworkService.shared.getTodayAISuggestion()
-            .map { response in
-                AICoachTip(
-                    message: response.message,
-                    timestamp: response.timestamp,
-                    actions: response.actions
-                )
-            }
-            .eraseToAnyPublisher()
-    }
+    // AI 建议（MVP）：使用本地示例数据
     
     private func loadWeeklyMetrics() -> AnyPublisher<ProgressMetrics, Error> {
         return NetworkService.shared.getWeeklyMetrics()
@@ -142,20 +114,7 @@ class AppViewModel: ObservableObject {
         .store(in: &cancellables)
     }
     
-    private func loadUnreadNotifications() {
-        NetworkService.shared.getUnreadNotifications()
-            .sink(
-                receiveCompletion: { completion in
-                    if case .failure(let error) = completion {
-                        print("Failed to load notifications: \(error)")
-                    }
-                },
-                receiveValue: { [weak self] notifications in
-                    self?.notifications = notifications
-                }
-            )
-            .store(in: &cancellables)
-    }
+    // 通知（MVP）：使用本地示例数据
     
     // MARK: - Actions
     
@@ -381,9 +340,7 @@ private func loadTodayCalorieBalance() -> AnyPublisher<CalorieBalance, Error> {
 
 ---
 
-## WebSocket 实时通知
-
-### WebSocket Manager 实现
+## WebSocket 实时（可选）
 
 ```swift
 import Foundation
@@ -400,7 +357,7 @@ class WebSocketManager: NSObject {
     }
     
     func connect(token: String) {
-        guard let url = URL(string: "ws://api.nourishfit.com/v1/ws?token=\(token)") else {
+        guard let url = URL(string: "wss://your-realtime-endpoint?token=\(token)") else {
             return
         }
         
@@ -543,45 +500,7 @@ init() {
 ---
 
 ## 环境配置
-
-### 使用配置文件管理不同环境
-
-创建 `Config.swift`：
-
-```swift
-enum Environment {
-    case development
-    case staging
-    case production
-}
-
-struct Config {
-    static var current: Environment {
-        #if DEBUG
-        return .development
-        #else
-        return .production
-        #endif
-    }
-    
-    static var baseURL: String {
-        switch current {
-        case .development:
-            return "http://localhost:8000/v1"
-        case .staging:
-            return "https://staging-api.nourishfit.com/v1"
-        case .production:
-            return "https://api.nourishfit.com/v1"
-        }
-    }
-}
-```
-
-然后在 `NetworkService` 中使用：
-
-```swift
-private let baseURL = Config.baseURL
-```
+不再需要 REST BaseURL。Firebase 配置由 `GoogleService-Info.plist` 提供。
 
 ---
 
