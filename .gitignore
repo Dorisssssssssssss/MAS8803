@@ -1,0 +1,32 @@
+# Xcode
+.DS_Store
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
+*.xcuserstate
+*.xcuserdatad/
+
+# Firebase
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Firebase Functions
+functions/node_modules/
+functions/.env
+
+# macOS
+.DS_Store
+
