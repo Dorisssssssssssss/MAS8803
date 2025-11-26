@@ -2,11 +2,23 @@ import Foundation
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseCore
 import UIKit
 
 // MARK: - Network Service
 class NetworkService {
     static let shared = NetworkService()
+    
+    private let aiCoachFunctionURL: URL? = {
+        if let custom = Bundle.main.object(forInfoDictionaryKey: "AICoachFunctionURL") as? String,
+           let url = URL(string: custom) {
+            return url
+        }
+        if let projectID = FirebaseApp.app()?.options.projectID {
+            return URL(string: "https://us-central1-\(projectID).cloudfunctions.net/ai_coach_suggestion")
+        }
+        return nil
+    }()
     
     private init() {}
 }
@@ -575,9 +587,7 @@ extension NetworkService {
 // MARK: - AI Coach API (via Cloud Function)
 extension NetworkService {
     func getTodayAISuggestion() -> AnyPublisher<AISuggestionResponse, Error> {
-        // Replace with your deployed Cloud Function URL
-        let cloudFunctionURL = "https://ai-coach-suggestion-REPLACE.a.run.app"
-        guard let url = URL(string: cloudFunctionURL) else {
+        guard let url = aiCoachFunctionURL else {
             return Fail(error: NetworkError.invalidURL).eraseToAnyPublisher()
         }
         let userId = Auth.auth().currentUser?.uid ?? "dev_user_123"

@@ -4,6 +4,7 @@ import SwiftUI
 struct AICoachTipCard: View {
     let aiCoachTip: AICoachTip
     let onActionTap: (TipAction) -> Void
+    let onRefresh: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -20,7 +21,7 @@ struct AICoachTipCard: View {
                 Spacer()
                 
                 Button("See another option") {
-                    // Handle see another option
+                    onRefresh()
                 }
                 .font(.caption)
                 .foregroundColor(.blue)
@@ -31,25 +32,6 @@ struct AICoachTipCard: View {
                 .font(.subheadline)
                 .foregroundColor(.primary)
                 .lineLimit(nil)
-            
-            // Action Buttons
-            HStack(spacing: 12) {
-                ForEach(aiCoachTip.actions) { action in
-                    Button(action: {
-                        onActionTap(action)
-                    }) {
-                        Text(action.title)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Color.yellow.opacity(0.2))
-                            .cornerRadius(20)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
         }
         .padding(20)
         .background(Color.yellow.opacity(0.1))
@@ -69,7 +51,8 @@ struct AICoachTipCard: View {
                 TipAction(title: "Take a Walk", type: .walk)
             ]
         ),
-        onActionTap: { _ in }
+        onActionTap: { _ in },
+        onRefresh: {}
     )
     .padding()
     .background(Color.gray.opacity(0.1))

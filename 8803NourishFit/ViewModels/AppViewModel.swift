@@ -15,6 +15,7 @@ class AppViewModel: ObservableObject {
     @Published var progress: [Progress] = []
     @Published var calorieBalance: CalorieBalance?
     @Published var aiCoachTip: AICoachTip?
+    @Published var aiSuggestionDetails: AISuggestionResponse?
     @Published var progressMetrics: ProgressMetrics?
     @Published var workoutTimeData: [WorkoutTimeData] = []
     @Published var notifications: [AppNotification] = []
@@ -239,6 +240,10 @@ class AppViewModel: ObservableObject {
     // MARK: - Authentication
     private func checkAuthenticationStatus() {
         isAuthenticated = Auth.auth().currentUser != nil
+        if isAuthenticated {
+            loadTodayMeals()
+            refreshAICoachTip()
+        }
     }
     
     func signInAnonymously() {
@@ -250,6 +255,7 @@ class AppViewModel: ObservableObject {
             self.isLoading = false
             self.isAuthenticated = true
             self.loadTodayMeals()
+            self.refreshAICoachTip()
         }
     }
     
@@ -295,6 +301,29 @@ class AppViewModel: ObservableObject {
                 },
                 receiveValue: { [weak self] meals in
                     self?.todayMeals = meals
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    func refreshAICoachTip() {
+        guard Auth.auth().currentUser != nil else { return }
+        networkService.getTodayAISuggestion()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case .failure(let error) = completion {
+                        self?.errorMessage = error.localizedDescription
+                    }
+                },
+                receiveValue: { [weak self] response in
+                    self?.aiSuggestionDetails = response
+                    let actions = response.actions.isEmpty ? [TipAction(title: "Review plan", type: .workout)] : response.actions
+                    self?.aiCoachTip = AICoachTip(
+                        message: response.message,
+                        timestamp: response.timestamp,
+                        actions: actions
+                    )
                 }
             )
             .store(in: &cancellables)

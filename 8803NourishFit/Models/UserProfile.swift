@@ -80,10 +80,26 @@ struct TipAction: Identifiable, Codable {
     var type: ActionType
     
     enum ActionType: String, CaseIterable, Codable {
-        case hiit = "HIIT"
-        case walk = "Walk"
-        case workout = "Workout"
-        case rest = "Rest"
+        case hiit
+        case walk
+        case workout
+        case rest
+        case nutrition
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self).lowercased()
+            if let type = ActionType(rawValue: value) {
+                self = type
+            } else {
+                self = .workout
+            }
+        }
+        
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 }
 

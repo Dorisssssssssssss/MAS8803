@@ -3,28 +3,114 @@ import SwiftUI
 // MARK: - Calendar View
 struct CalendarView: View {
     @ObservedObject var viewModel: AppViewModel
+    @State private var showingImagePicker = false
+    @State private var showingHeaderImagePickerOptions = false
+    @State private var selectedImage: UIImage?
+    @State private var imageSourceType: UIImagePickerController.SourceType = .camera
+    @State private var showingScanningView = false
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    headerView
-                    
-                    // Quick Log Section
-                    quickLogSection
-                    
-                    // Today's Intake Record Section
-                    todaysIntakeRecordSection
-                    
-                    // Today's Workout Record Section
-                    todaysWorkoutRecordSection
+            ZStack(alignment: .topTrailing) {
+                // Main Content
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header
+                        headerView
+                        
+                        // Quick Log Section
+                        quickLogSection
+                        
+                        // Today's Intake Record Section
+                        todaysIntakeRecordSection
+                        
+                        // Today's Workout Record Section
+                        todaysWorkoutRecordSection
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
+                .background(Color.gray.opacity(0.05))
+                .navigationBarHidden(true)
+                
+                // Floating dropdown menu
+                if showingHeaderImagePickerOptions {
+                    VStack(spacing: 12) {
+                        // Camera Button
+                        Button(action: {
+                            imageSourceType = .camera
+                            showingHeaderImagePickerOptions = false
+                            showingImagePicker = true
+                        }) {
+                            Text("Camera")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color(red: 62/255, green: 129/255, blue: 246/255),
+                                            Color(red: 135/255, green: 93/255, blue: 245/255)
+                                        ]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(20)
+                        }
+                        
+                        // Photo Library Button
+                        Button(action: {
+                            imageSourceType = .photoLibrary
+                            showingHeaderImagePickerOptions = false
+                            showingImagePicker = true
+                        }) {
+                            Text("Photo Library")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color(red: 239/255, green: 239/255, blue: 239/255))
+                                .cornerRadius(20)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color(red: 245/255, green: 245/255, blue: 245/255))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
+                    .frame(width: 200)
+                    .offset(x: -20, y: 80)
+                    .transition(.opacity.combined(with: .scale))
+                    .zIndex(1000)
+                }
             }
-            .background(Color.gray.opacity(0.05))
-            .navigationBarHidden(true)
+        }
+        .sheet(isPresented: $showingImagePicker) {
+            ImagePicker(image: $selectedImage, sourceType: imageSourceType)
+                .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showingScanningView) {
+            if let image = selectedImage {
+                ScanningView(selectedImage: image, viewModel: viewModel)
+            }
+        }
+        .onChange(of: selectedImage) { oldValue, newValue in
+            if let _ = newValue {
+                showingScanningView = true
+            }
+        }
+        .onChange(of: showingScanningView) { oldValue, newValue in
+            if !newValue {
+                selectedImage = nil
+            }
+        }
+        .onTapGesture {
+            if showingHeaderImagePickerOptions {
+                withAnimation {
+                    showingHeaderImagePickerOptions = false
+                }
+            }
         }
     }
     
@@ -59,10 +145,12 @@ struct CalendarView: View {
             // Action Icons
             HStack(spacing: 16) {
                 Button(action: {
-                    // Camera action
+                    withAnimation {
+                        showingHeaderImagePickerOptions.toggle()
+                    }
                 }) {
                     Image(systemName: "camera.fill")
-                        .foregroundColor(.gray)
+                        .foregroundColor(.blue)
                         .font(.title3)
                 }
                 
@@ -129,61 +217,73 @@ struct CalendarView: View {
                 }
             }
             
-            // Food Items
-            VStack(spacing: 12) {
-                FoodItemRow(
-                    icon: "apple.fill",
-                    iconColor: .orange,
-                    name: "Apple",
-                    quantity: "1"
-                )
-                
-                FoodItemRow(
-                    icon: "bread.fill",
-                    iconColor: .yellow,
-                    name: "Whole wheat bread",
-                    quantity: "2"
-                )
+            // Food Items - each with its own background
+            VStack(spacing: 8) {
+                IntakeRecordRow(name: "Apple", quantity: "1")
+                IntakeRecordRow(name: "Tonkotsu Ramen", quantity: "1")
             }
             
             // Nutrition Intake Summary
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Today's Nutrition Intake")
-                        .font(.subheadline)
+                        .font(.system(size: 11))
                         .fontWeight(.semibold)
                     
                     Spacer()
                     
-                    Text("1245 / 1800 kcal")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 2) {
+                        Text("1245")
+                            .font(.system(size: 11))
+                            .fontWeight(.semibold)
+                            .foregroundColor(Color(red: 62/255, green: 129/255, blue: 246/255))
+                        
+                        Text("/ 1800 kcal")
+                            .font(.system(size: 11))
+                            .fontWeight(.semibold)
+                            .foregroundColor(Color(red: 135/255, green: 93/255, blue: 245/255).opacity(0.7))
+                    }
                 }
                 
-                VStack(spacing: 8) {
+                // Macronutrients in one row
+                HStack(spacing: 12) {
                     // Protein
-                    NutritionProgressBar(
-                        label: "Protein 165g",
+                    MacroProgressItem(
+                        label: "Protein",
+                        value: "165g",
                         progress: 0.8,
-                        color: .purple
+                        color: Color(red: 147/255, green: 51/255, blue: 234/255) // Purple
                     )
                     
                     // Carbs
-                    NutritionProgressBar(
-                        label: "Carbs 80g",
+                    MacroProgressItem(
+                        label: "Carbs",
+                        value: "80g",
                         progress: 0.45,
-                        color: .blue
+                        color: Color(red: 59/255, green: 130/255, blue: 246/255) // Blue
                     )
                     
                     // Fat
-                    NutritionProgressBar(
-                        label: "Fat 45g",
+                    MacroProgressItem(
+                        label: "Fat",
+                        value: "45g",
                         progress: 0.65,
-                        color: .green
+                        color: Color(red: 34/255, green: 197/255, blue: 94/255) // Green
                     )
                 }
             }
+            .padding(16)
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(red: 239/255, green: 245/255, blue: 255/255),  // #EFF5FF
+                        Color(red: 250/255, green: 245/255, blue: 255/255)   // #FAF5FF
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .cornerRadius(12)
         }
         .padding(20)
         .background(Color.white)
@@ -264,63 +364,70 @@ struct QuickLogButton: View {
     }
 }
 
-// MARK: - Food Item Row
-struct FoodItemRow: View {
-    let icon: String
-    let iconColor: Color
+// MARK: - Intake Record Row
+struct IntakeRecordRow: View {
     let name: String
     let quantity: String
     
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(iconColor)
-                .font(.title3)
-                .frame(width: 30, height: 30)
-            
+        HStack {
             Text(name)
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.system(size: 14))
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
             
             Spacer()
             
             Text(quantity)
-                .font(.subheadline)
+                .font(.system(size: 14))
                 .fontWeight(.semibold)
-                .foregroundColor(.secondary)
+                .foregroundColor(.primary)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(red: 249/255, green: 250/255, blue: 251/255)) // #F9FAFB
+        .cornerRadius(10)
     }
 }
 
-// MARK: - Nutrition Progress Bar
-struct NutritionProgressBar: View {
+// MARK: - Macro Progress Item (Horizontal Layout)
+struct MacroProgressItem: View {
     let label: String
+    let value: String
     let progress: Double
     let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
+        VStack(alignment: .leading, spacing: 6) {
+            // Label and Value
+            VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.caption)
-                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
                 
-                Spacer()
+                Text(value)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
             }
             
+            // Progress Bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
+                    // Background
                     RoundedRectangle(cornerRadius: 2)
                         .fill(Color.gray.opacity(0.2))
-                        .frame(height: 4)
+                        .frame(height: 6)
                     
+                    // Progress Fill
                     RoundedRectangle(cornerRadius: 2)
                         .fill(color)
-                        .frame(width: min(CGFloat(progress) * geometry.size.width, geometry.size.width), height: 4)
+                        .frame(width: min(CGFloat(progress) * geometry.size.width, geometry.size.width), height: 6)
                 }
             }
-            .frame(height: 4)
+            .frame(height: 6)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -388,3 +495,5 @@ struct WorkoutItemRow: View {
 #Preview {
     CalendarView(viewModel: AppViewModel())
 }
+
+

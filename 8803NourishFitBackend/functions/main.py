@@ -2,6 +2,7 @@ import functions_framework
 import requests
 import os
 import json
+import base64
 from firebase_admin import initialize_app
 from firebase_functions import https_fn
 from firebase_admin import auth as admin_auth, firestore
@@ -158,15 +159,8 @@ def get_oauth_access_token(client_id, client_secret=None):
         return None
 
 # Coze Chat API URL
-# 根据Coze API文档，正确的端点可能是：
-# 选项1: 中国版API (使用coze.cn)
-COZE_URL = 'https://api.coze.cn/open_api/v2/chat'
-# 选项2: 国际版API (使用coze.com)
-# COZE_URL = 'https://api.coze.com/open_api/v2/chat'
-# 选项3: 使用open_api v3端点 (国际版)
-# COZE_URL = 'https://api.coze.com/open_api/v3/chat'
-# 选项4: 使用v3/chat端点 (国际版)
-# COZE_URL = 'https://api.coze.com/v3/chat'
+# 根据Coze API文档，使用v3/chat端点
+COZE_URL = 'https://api.coze.cn/v3/chat'
 
 @https_fn.on_request()
 def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
@@ -180,6 +174,7 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Content-Type': 'application/json',  # 设置Content-Type为JSON
     }
 
     if req.method == 'OPTIONS':
@@ -247,7 +242,9 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
         # 根据Coze API文档，图片可能需要特定的格式
         # 尝试不同的图片传递方式
         
-        # 方式1: 使用base64字符串（不带data:image前缀）
+        # 根据Coze API文档，需要先将图片上传到服务器，获取file_id
+        # 步骤1: 上传图片到Coze
+        print(f"📤 Step 1: Uploading image to Coze...")
         image_content = base64_image
         if image_content.startswith('data:image'):
             # 移除data:image前缀，只保留base64数据
@@ -255,21 +252,142 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
         
         print(f"📸 Image content length: {len(image_content)}, starts with: {image_content[:20]}...")
         
-        # 构造消息列表
-        # 根据Coze API文档，可能需要调整消息顺序
-        # 方式1: 先发送图片，再发送文本（可能Bot需要先看到图片）
-        messages_list = [
-            {
-                "role": "user",
-                "content": image_content,
-                "content_type": "image"
-            },
-            {
-                "role": "user",
-                "content": "请分析这份餐食并严格输出 JSON。", 
-                "content_type": "text"
-            }
-        ]
+        # 初始化query_text和messages_list
+        query_text = "分析图片中的食物"  # 默认query
+        messages_list = []
+        
+        # 上传图片到Coze API
+        image_bytes = base64.b64decode(image_content)
+        
+        # Coze文件上传API (根据官方文档)
+        upload_url = "https://api.coze.cn/v1/files/upload"
+        upload_headers = {
+            'Authorization': f'Bearer {api_key}'
+        }
+        
+        # 准备上传文件 (根据官方文档，只需要file参数)
+        files = {
+            'file': ('image.jpg', image_bytes, 'image/jpeg')
+        }
+        
+        try:
+            upload_response = requests.post(
+                upload_url,
+                headers=upload_headers,
+                files=files,
+                timeout=30
+            )
+            
+            print(f"📤 Upload response status: {upload_response.status_code}")
+            print(f"📤 Upload response: {upload_response.text[:200]}")
+            
+            if upload_response.status_code == 200:
+                upload_data = upload_response.json()
+                # 根据官方文档，file_id在 response.json()["data"]["id"] 路径下
+                file_id = upload_data.get('data', {}).get('id') or upload_data.get('id') or upload_data.get('file_id')
+                print(f"✅ Image uploaded successfully, file_id: {file_id}")
+                print(f"📋 Full upload response: {json.dumps(upload_data, indent=2)}")
+                
+                if file_id:
+                    # 步骤2: 根据Coze API文档，使用object_string格式
+                    # object_string格式：content应该是序列化的JSON字符串
+                    # 格式：[{"type":"image","file_id":"..."},{"type":"text","text":"..."}]
+                    object_string_content = [
+                        {
+                            "type": "image",
+                            "file_id": file_id
+                        },
+                        {
+                            "type": "text",
+                            "text": "分析图片中的食物"
+                        }
+                    ]
+                    
+                    # 序列化为JSON字符串
+                    object_string_json = json.dumps(object_string_content, ensure_ascii=False)
+                    print(f"🔗 Object string content: {object_string_json}")
+                    
+                    # 使用object_string格式的消息
+                    messages_list = [
+                        {
+                            "role": "user",
+                            "content": object_string_json,  # 序列化的JSON字符串
+                            "content_type": "object_string"
+                        }
+                    ]
+                else:
+                    print(f"⚠️ file_id is None or empty, using text only")
+                    messages_list = [
+                        {
+                            "role": "user",
+                            "content": "分析图片中的食物", 
+                            "content_type": "text"
+                        }
+                    ]
+                
+                # 如果上面的方式不行，可以尝试：
+                # messages_list = [
+                #     {
+                #         "role": "user",
+                #         "content": {
+                #             "file_id": file_id
+                #         },
+                #         "content_type": "image"
+                #     },
+                #     {
+                #         "role": "user",
+                #         "content": "请分析这份餐食并严格输出 JSON。", 
+                #         "content_type": "text"
+                #     }
+                # ]
+            else:
+                print(f"⚠️ Image upload failed, using text only")
+                # 如果上传失败，只使用文本
+                messages_list = [
+                    {
+                        "role": "user",
+                        "content": "分析图片中的食物", 
+                        "content_type": "text"
+                    }
+                ]
+        except Exception as e:
+            print(f"⚠️ Image upload error: {e}, using text only")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            # 如果上传失败，只使用文本
+            messages_list = [
+                {
+                    "role": "user",
+                    "content": "分析图片中的食物", 
+                    "content_type": "text"
+                }
+            ]
+        
+        # 如果上面的方式不行，可以尝试将图片和文本合并到一个消息中：
+        # messages_list = [
+        #     {
+        #         "role": "user",
+        #         "content": [
+        #             {
+        #                 "type": "text",
+        #                 "text": "请分析这份餐食并严格输出 JSON。"
+        #             },
+        #             {
+        #                 "type": "image",
+        #                 "image": image_content
+        #             }
+        #         ]
+        #     }
+        # ]
+        
+        print(f"📤 Messages list: {len(messages_list)} messages")
+        first_msg = messages_list[0]
+        if isinstance(first_msg.get('content'), list):
+            print(f"📤 First message has {len(first_msg.get('content', []))} content items")
+            for i, item in enumerate(first_msg.get('content', [])):
+                print(f"📤 Content item {i}: type={item.get('type')}, length={len(str(item.get('text') or item.get('image', '')))}")
+        else:
+            print(f"📤 First message type: {first_msg.get('content_type')}, content length: {len(str(first_msg.get('content', '')))}")
         
         # 方式2: 如果上面的方式不行，可以尝试将图片和文本合并到一个消息中
         # messages_list = [
@@ -303,18 +421,18 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
         #     "content_type": "image_url"
         # })
         
+        # 根据Coze API v3文档，构造请求体
         coze_request_body = {
-            "conversation_id": user_id, 
             "bot_id": bot_id_str,
-            "user": user_id,
-            "query": "请根据图片分析食物热量并严格输出 JSON。", # 触发 Agent 的指令
+            "user_id": user_id,  # 使用user_id而不是user
             "stream": False,
-            "chat_id": user_id,  # 添加chat_id
-            "messages": messages_list
+            "auto_save_history": True,  # 保存对话记录
+            "additional_messages": messages_list  # 使用additional_messages而不是messages
         }
         
         print(f"📤 Request body keys: {list(coze_request_body.keys())}")
         print(f"📤 Bot ID in request: {coze_request_body.get('bot_id')}")
+        print(f"📤 Additional messages count: {len(messages_list)}")
         
         # --- 3. 调用 Coze Agent API ---
         print(f"🤖 Calling Coze API at: {COZE_URL}")
@@ -378,7 +496,7 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                 json.dumps({'error': f'Coze API returned status {coze_response.status_code}: {coze_response.text[:200]}'}), 
                 status=503, 
                 headers=response_headers
-            )
+        )
         
         coze_response.raise_for_status() # 检查是否有 HTTP 错误
 
@@ -386,17 +504,144 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
         print(f"📦 Coze API response data keys: {list(coze_data.keys())}")
         print(f"📦 Coze API response data (first 500 chars): {str(coze_data)[:500]}")
 
-        # 检查是否是空结果
-        if coze_data.get('msg_type') == 'empty result' or coze_data.get('data') == 'empty result':
-            print(f"⚠️ Coze returned empty result")
-            return https_fn.Response(json.dumps({
-                'error': 'Coze Bot returned empty result. The bot may not be configured correctly or may not support image analysis.',
-                'hint': 'Please check if the Bot is properly configured and supports image analysis.'
-            }), status=500, headers=response_headers)
+        # 根据文档，非流式响应的结构是：
+        # {
+        #     "data": { "id": "...", "conversation_id": "...", "status": "...", ... },
+        #     "code": 0,
+        #     "msg": ""
+        # }
+        # 消息需要通过"查看对话消息详情"接口获取
+        
+        # 检查响应结构
+        if coze_data.get('code') != 0:
+            error_msg = coze_data.get('msg', 'Unknown error')
+            print(f"❌ Coze API returned error: {error_msg}")
+            return https_fn.Response(
+                json.dumps({
+                    'error': f'Coze API error: {error_msg}',
+                    'code': coze_data.get('code')
+                }), 
+                status=500, 
+                headers=response_headers
+            )
+        
+        # 获取对话信息
+        chat_data = coze_data.get('data', {})
+        chat_id = chat_data.get('id')
+        conversation_id = chat_data.get('conversation_id')
+        status = chat_data.get('status')
+        
+        print(f"📋 Chat ID: {chat_id}, Conversation ID: {conversation_id}, Status: {status}")
+        
+        # 根据文档，如果对话未完成，需要轮询"查看对话详情"接口
+        # 直到状态为 completed、required_action、canceled 或 failed
+        import time
+        max_poll_attempts = 120  # 最多轮询120次（约2分钟）
+        poll_interval = 1  # 每次间隔1秒（根据文档建议：每秒轮询一次）
+        poll_attempt = 0
+        
+        # 终态列表
+        final_statuses = ['completed', 'required_action', 'canceled', 'failed']
+        
+        # 如果状态不是终态，进行轮询
+        while status not in final_statuses and poll_attempt < max_poll_attempts:
+            if status == 'in_progress':
+                print(f"⏳ Chat is in progress, waiting {poll_interval} seconds before polling again... (attempt {poll_attempt + 1}/{max_poll_attempts})")
+                time.sleep(poll_interval)
+                
+                # 调用"查看对话详情"接口（根据文档，端点是 /v3/chat/retrieve）
+                chat_detail_url = f"https://api.coze.cn/v3/chat/retrieve"
+                chat_detail_params = {
+                    'chat_id': chat_id,
+                    'conversation_id': conversation_id
+                }
+                
+                print(f"📡 Polling chat detail from: {chat_detail_url}")
+                chat_detail_response = requests.get(
+                    chat_detail_url,
+                    headers=coze_headers,
+                    params=chat_detail_params,
+                    timeout=30
+                )
+                
+                if chat_detail_response.status_code == 200:
+                    chat_detail_data = chat_detail_response.json()
+                    if chat_detail_data.get('code') == 0:
+                        chat_data = chat_detail_data.get('data', {})
+                        status = chat_data.get('status')
+                        print(f"📋 Updated status: {status}")
+                    else:
+                        print(f"⚠️ Chat detail API returned error: {chat_detail_data.get('msg')}")
+                        break
+                else:
+                    print(f"⚠️ Failed to poll chat detail: {chat_detail_response.status_code}")
+                    break
+                
+                poll_attempt += 1
+            else:
+                # 如果状态不是 in_progress，直接退出循环
+                break
+        
+        if status not in final_statuses:
+            print(f"⚠️ Chat did not reach final status after {poll_attempt} attempts. Current status: {status}")
+            return https_fn.Response(
+                json.dumps({
+                    'error': f'Chat did not complete in time. Status: {status}',
+                    'chat_id': chat_id,
+                    'conversation_id': conversation_id,
+                    'status': status
+                }), 
+                status=504,  # Gateway Timeout
+                headers=response_headers
+            )
+        
+        print(f"✅ Chat reached final status: {status}")
+        
+        # 如果对话已完成或需要操作，调用"查看对话消息详情"接口获取消息
+        if status in ['completed', 'required_action'] and chat_id:
+            # 调用查看对话消息详情接口
+            messages_url = f"https://api.coze.cn/v3/chat/message/list"
+            messages_params = {
+                'chat_id': chat_id,
+                'conversation_id': conversation_id
+            }
+            
+            print(f"📡 Fetching messages from: {messages_url}")
+            messages_response = requests.get(
+                messages_url,
+                headers=coze_headers,
+                params=messages_params,
+                timeout=30
+            )
+            
+            if messages_response.status_code == 200:
+                messages_data = messages_response.json()
+                print(f"📦 Messages response keys: {list(messages_data.keys())}")
+                if messages_data.get('code') == 0:
+                    messages = messages_data.get('data', [])
+                else:
+                    print(f"⚠️ Messages API returned error: {messages_data.get('msg')}")
+                    messages = []
+            else:
+                print(f"⚠️ Failed to fetch messages: {messages_response.status_code}")
+                messages = []
+        else:
+            # 如果对话失败或取消，返回错误
+            print(f"❌ Chat status is {status}, cannot fetch messages")
+            messages = []
+            return https_fn.Response(
+                json.dumps({
+                    'error': f'Chat failed or was canceled. Status: {status}',
+                    'chat_id': chat_id,
+                    'conversation_id': conversation_id,
+                    'status': status
+                }), 
+                status=500, 
+                headers=response_headers
+            )
 
         # --- 4. 提取和返回结果 ---
         # 查找包含 JSON 结构的消息
-        messages = coze_data.get('messages', [])
         print(f"📨 Number of messages: {len(messages)}")
         
         if messages:
@@ -424,9 +669,48 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
             
             # **关键步骤：解析 JSON**
             try:
-                final_json = json.loads(json_string)
+                coze_json = json.loads(json_string)
                 print(f"✅ Successfully parsed JSON from Coze response")
-                # 成功解析，返回给前端
+                
+                # 转换Coze返回的格式为前端期望的格式
+                # Coze格式: {"meal_id": "...", "items": [...], "totals": {...}}
+                # 前端期望: {"recognizedFoods": [{"name": "...", "calories": ..., ...}]}
+                
+                recognized_foods = []
+                items = coze_json.get('items', [])
+                
+                for item in items:
+                    food_item = {
+                        "name": item.get('food_name', 'Unknown Food'),
+                        "confidence": 0.9,  # 默认置信度，Coze没有提供
+                        "calories": int(item.get('calories', 0)),
+                        "protein": float(item.get('protein_grams', 0)),
+                        "carbs": float(item.get('carbs_grams', 0)),
+                        "fat": float(item.get('fat_grams', 0))
+                    }
+                    recognized_foods.append(food_item)
+                
+                # 如果items为空，尝试从totals中提取信息
+                if not recognized_foods and 'totals' in coze_json:
+                    totals = coze_json.get('totals', {})
+                    if totals.get('total_calories', 0) > 0:
+                        food_item = {
+                            "name": "Meal",
+                            "confidence": 0.9,
+                            "calories": int(totals.get('total_calories', 0)),
+                            "protein": float(totals.get('total_protein', 0)),
+                            "carbs": float(totals.get('total_carbs', 0)),
+                            "fat": float(totals.get('total_fat', 0))
+                        }
+                        recognized_foods.append(food_item)
+                
+                # 构造前端期望的格式
+                final_json = {
+                    "recognizedFoods": recognized_foods
+                }
+                
+                print(f"📤 Converted to frontend format: {len(recognized_foods)} foods")
+                # 成功解析并转换，返回给前端
                 return https_fn.Response(json.dumps(final_json), status=200, headers=response_headers)
             except json.JSONDecodeError as e:
                 print(f"❌ JSON Parsing Failed. Error: {e}")
