@@ -9,87 +9,137 @@ struct HomeView: View {
     @State private var selectedImage: UIImage?
     @State private var selectedMealType = "Breakfast"
     @State private var imageSourceType: UIImagePickerController.SourceType = .camera
+    @State private var showingScanningView = false
     
     var body: some View {
         NavigationView {
             if !viewModel.isAuthenticated {
                 authenticationView
             } else {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Header
-                        headerView
-                        
-                        // Calorie Balance Card
-                        CalorieBalanceCard(viewModel: viewModel)
-                        
-                        // Food Recognition Section
-                        foodRecognitionSection
-                        
-                        // AI Coach Tip Card
-                        if let aiCoachTip = viewModel.aiCoachTip {
-                            AICoachTipCard(
-                                aiCoachTip: aiCoachTip,
-                                onActionTap: { action in
-                                    // Handle tip action
-                                    print("Tapped action: \(action.title)")
+                ZStack(alignment: .topTrailing) {
+                    // Main Content
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            // Header
+                            headerView
+                            
+                            // Calorie Balance Card
+                            CalorieBalanceCard(viewModel: viewModel)
+                            
+                            // AI Coach Tip Card
+                            if let aiCoachTip = viewModel.aiCoachTip {
+                                AICoachTipCard(
+                                    aiCoachTip: aiCoachTip,
+                                    onActionTap: { action in
+                                        // Handle tip action
+                                        print("Tapped action: \(action.title)")
+                                    }
+                                )
+                            }
+                            
+                            // Calendar Schedule Card
+                            CalendarScheduleCard(
+                                scheduleItems: viewModel.scheduleItems,
+                                onCustomizeTap: {
+                                    // Handle customize tap
+                                    print("Customize tapped")
                                 }
                             )
                         }
-                        
-                        // Calendar Schedule Card
-                        CalendarScheduleCard(
-                            scheduleItems: viewModel.scheduleItems,
-                            onCustomizeTap: {
-                                // Handle customize tap
-                                print("Customize tapped")
-                            }
-                        )
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
+                    .background(Color.gray.opacity(0.05))
+                    .navigationBarHidden(true)
+                    
+                    // Floating dropdown menu
+                    if showingHeaderImagePickerOptions {
+                        VStack(spacing: 12) {
+                            // Camera Button
+                            Button(action: {
+                                imageSourceType = .camera
+                                showingHeaderImagePickerOptions = false
+                                showingImagePicker = true
+                            }) {
+                                Text("Camera")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [
+                                                Color(red: 62/255, green: 129/255, blue: 246/255),  // #3E81F6
+                                                Color(red: 135/255, green: 93/255, blue: 245/255)   // #875DF5
+                                            ]),
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .cornerRadius(20)
+                            }
+                            
+                            // Photo Library Button
+                            Button(action: {
+                                imageSourceType = .photoLibrary
+                                showingHeaderImagePickerOptions = false
+                                showingImagePicker = true
+                            }) {
+                                Text("Photo Library")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.black)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color(red: 239/255, green: 239/255, blue: 239/255)) // #EFEFEF
+                                    .cornerRadius(20)
+                            }
+                        }
+                        .padding(16)
+                        .background(Color(red: 245/255, green: 245/255, blue: 245/255)) // Light grey background
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
+                        .frame(width: 200)
+                        .offset(x: -20, y: 80) // Position 30px below camera icon
+                        .transition(.opacity.combined(with: .scale))
+                        .zIndex(1000) // Ensure it floats above everything
+                    }
                 }
-                .background(Color.gray.opacity(0.05))
-                .navigationBarHidden(true)
             }
         }
         .sheet(isPresented: $showingImagePicker) {
             ImagePicker(image: $selectedImage, sourceType: imageSourceType)
                 .ignoresSafeArea()
         }
-        .confirmationDialog("Select Image Source", isPresented: $showingImagePickerOptions) {
-            Button("Camera") {
-                imageSourceType = .camera
-                showingImagePicker = true
-            }
-            Button("Photo Library") {
-                imageSourceType = .photoLibrary
-                showingImagePicker = true
-            }
-            Button("Cancel", role: .cancel) { }
-        }
-        .confirmationDialog("Select Image Source", isPresented: $showingHeaderImagePickerOptions) {
-            Button("Camera") {
-                imageSourceType = .camera
-                showingImagePicker = true
-            }
-            Button("Photo Library") {
-                imageSourceType = .photoLibrary
-                showingImagePicker = true
-            }
-            Button("Cancel", role: .cancel) { }
-        }
-        .onChange(of: selectedImage) { image in
-            if let image = image {
-                viewModel.recognizeFood(image: image, mealType: selectedMealType)
-                selectedImage = nil
+        .fullScreenCover(isPresented: $showingScanningView) {
+            if let image = selectedImage {
+                ScanningView(selectedImage: image, viewModel: viewModel)
             }
         }
-        .onChange(of: showingImagePicker) { isShowing in
-            if !isShowing {
+        .onChange(of: selectedImage) { oldValue, newValue in
+            if let _ = newValue {
+                // Show scanning view instead of directly calling API
+                showingScanningView = true
+            }
+        }
+        .onChange(of: showingImagePicker) { oldValue, newValue in
+            if !newValue {
                 // Reset any UI state when picker is dismissed
                 showingImagePickerOptions = false
                 showingHeaderImagePickerOptions = false
+            }
+        }
+        .onChange(of: showingScanningView) { oldValue, newValue in
+            if !newValue {
+                // Clear selected image after scanning view is dismissed
+                selectedImage = nil
+            }
+        }
+        // Tap outside to dismiss menu
+        .onTapGesture {
+            if showingHeaderImagePickerOptions {
+                withAnimation {
+                    showingHeaderImagePickerOptions = false
+                }
             }
         }
     }
@@ -125,7 +175,9 @@ struct HomeView: View {
             // Action Icons
             HStack(spacing: 16) {
                 Button(action: {
-                    showingHeaderImagePickerOptions = true
+                    withAnimation {
+                        showingHeaderImagePickerOptions.toggle()
+                    }
                 }) {
                     Image(systemName: "camera.fill")
                         .foregroundColor(.blue)
@@ -207,68 +259,6 @@ struct HomeView: View {
         .background(Color.gray.opacity(0.05))
     }
     
-    // MARK: - Food Recognition Section
-    private var foodRecognitionSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Food Recognition")
-                .font(.headline)
-                .fontWeight(.semibold)
-            
-            VStack(spacing: 12) {
-                // Meal Type Selector
-                HStack {
-                    Text("Meal Type:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Picker("Meal Type", selection: $selectedMealType) {
-                        Text("Breakfast").tag("Breakfast")
-                        Text("Lunch").tag("Lunch")
-                        Text("Dinner").tag("Dinner")
-                        Text("Snack").tag("Snack")
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                }
-                
-                // Image Selection Button
-                Button(action: {
-                    showingImagePickerOptions = true
-                }) {
-                    HStack {
-                        Image(systemName: "photo.on.rectangle")
-                        Text("Select Image")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundColor(.blue)
-                    .cornerRadius(12)
-                }
-                
-                // Loading State
-                if viewModel.isLoading {
-                    HStack {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Analyzing food...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                // Error Message
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                        .foregroundColor(.red)
-                        .font(.caption)
-                }
-            }
-        }
-        .padding(20)
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
-    }
 }
 
 // MARK: - Image Picker

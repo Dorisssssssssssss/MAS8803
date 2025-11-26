@@ -4,28 +4,117 @@ import SwiftUI
 struct SuggestionsView: View {
     @ObservedObject var viewModel: AppViewModel
     @State private var showingCustomizeSheet = false
+    @State private var showingImagePicker = false
+    @State private var showingHeaderImagePickerOptions = false
+    @State private var selectedImage: UIImage?
+    @State private var imageSourceType: UIImagePickerController.SourceType = .camera
+    @State private var showingScanningView = false
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    headerView
-                    
-                    // Today's Suggestion Card
-                    todaysSuggestionCard
-                    
-                    // Notification Section
-                    notificationSection
+            ZStack(alignment: .topTrailing) {
+                // Main Content
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header
+                        headerView
+                        
+                        // Today's Suggestion Card
+                        todaysSuggestionCard
+                        
+                        // Action Buttons
+                        actionButtonsSection
+                        
+                        // Why AI Recommended This Section
+                        whyAIRecommendedSection
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
+                .background(Color.gray.opacity(0.05))
+                .navigationBarHidden(true)
+                
+                // Floating dropdown menu
+                if showingHeaderImagePickerOptions {
+                    VStack(spacing: 12) {
+                        // Camera Button
+                        Button(action: {
+                            imageSourceType = .camera
+                            showingHeaderImagePickerOptions = false
+                            showingImagePicker = true
+                        }) {
+                            Text("Camera")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color(red: 62/255, green: 129/255, blue: 246/255),
+                                            Color(red: 135/255, green: 93/255, blue: 245/255)
+                                        ]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(20)
+                        }
+                        
+                        // Photo Library Button
+                        Button(action: {
+                            imageSourceType = .photoLibrary
+                            showingHeaderImagePickerOptions = false
+                            showingImagePicker = true
+                        }) {
+                            Text("Photo Library")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color(red: 239/255, green: 239/255, blue: 239/255))
+                                .cornerRadius(20)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color(red: 245/255, green: 245/255, blue: 245/255))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
+                    .frame(width: 200)
+                    .offset(x: -20, y: 80)
+                    .transition(.opacity.combined(with: .scale))
+                    .zIndex(1000)
+                }
             }
-            .background(Color.gray.opacity(0.05))
-            .navigationBarHidden(true)
         }
         .sheet(isPresented: $showingCustomizeSheet) {
             CustomizeSuggestionsView()
+        }
+        .sheet(isPresented: $showingImagePicker) {
+            ImagePicker(image: $selectedImage, sourceType: imageSourceType)
+                .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showingScanningView) {
+            if let image = selectedImage {
+                ScanningView(selectedImage: image, viewModel: viewModel)
+            }
+        }
+        .onChange(of: selectedImage) { oldValue, newValue in
+            if let _ = newValue {
+                showingScanningView = true
+            }
+        }
+        .onChange(of: showingScanningView) { oldValue, newValue in
+            if !newValue {
+                selectedImage = nil
+            }
+        }
+        .onTapGesture {
+            if showingHeaderImagePickerOptions {
+                withAnimation {
+                    showingHeaderImagePickerOptions = false
+                }
+            }
         }
     }
     
@@ -60,10 +149,12 @@ struct SuggestionsView: View {
             // Action Icons
             HStack(spacing: 16) {
                 Button(action: {
-                    // Camera action
+                    withAnimation {
+                        showingHeaderImagePickerOptions.toggle()
+                    }
                 }) {
                     Image(systemName: "camera.fill")
-                        .foregroundColor(.gray)
+                        .foregroundColor(.blue)
                         .font(.title3)
                 }
                 
@@ -86,219 +177,261 @@ struct SuggestionsView: View {
             // Title
             Text("Today's Suggestion")
                 .font(.headline)
-                .fontWeight(.semibold)
+                .fontWeight(.bold)
             
-            // Introductory Text
+            // Subtitle
             Text("Based on your data analysis, I've customized today's plan for you.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
-            // Training Adjustment
+            // Training Section
             VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
+                // Section Header
+                HStack(spacing: 8) {
                     Image(systemName: "dumbbell.fill")
                         .foregroundColor(.yellow)
-                        .font(.title3)
+                        .font(.body)
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Training Adjustment")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        
-                        Text("Reduce aerobic exercise by 20 minutes and increase strength training.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(16)
-                .background(Color.white)
-                .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-            }
-            
-            // Dietary Adjustments
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    Image(systemName: "apple.fill")
-                        .foregroundColor(.green)
-                        .font(.title3)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Dietary Adjustments")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        
-                        Text("Increase protein by 15g, reduce carbohydrates by 30g")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(16)
-                .background(Color.white)
-                .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-            }
-            
-            // Why do we recommend this?
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    HStack(spacing: 12) {
-                        Image(systemName: "lightbulb.fill")
-                            .foregroundColor(.yellow)
-                            .font(.title3)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Why do we recommend this?")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            
-                            Text("Click to view detailed analysis")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.gray)
-                        .font(.caption)
-                }
-                .padding(16)
-                .background(Color.white)
-                .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-            }
-            
-            // Action Buttons
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    // Accept Button
-                    Button(action: {
-                        // Accept action
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.white)
-                            Text("Accept")
-                                .foregroundColor(.white)
-                                .fontWeight(.medium)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.green)
-                        .cornerRadius(10)
-                    }
-                    
-                    // Regenerate Button
-                    Button(action: {
-                        // Regenerate action
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "arrow.clockwise.circle.fill")
-                                .foregroundColor(.white)
-                            Text("Regenerate")
-                                .foregroundColor(.white)
-                                .fontWeight(.medium)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.blue)
-                        .cornerRadius(10)
-                    }
+                    Text("Training")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
                 }
                 
-                HStack(spacing: 12) {
-                    // Edit Button
-                    Button(action: {
-                        // Edit action
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "pencil.circle.fill")
-                                .foregroundColor(.primary)
-                            Text("Edit")
-                                .foregroundColor(.primary)
-                                .fontWeight(.medium)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.yellow.opacity(0.3))
-                        .cornerRadius(10)
-                    }
+                // Training Items
+                VStack(spacing: 8) {
+                    SuggestionItemRow(
+                        title: "Squats",
+                        details: "3 sets × 12 reps | 25min"
+                    )
                     
-                    // Delay Button
-                    Button(action: {
-                        // Delay action
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "clock.fill")
-                                .foregroundColor(.primary)
-                            Text("Delay")
-                                .foregroundColor(.primary)
-                                .fontWeight(.medium)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(10)
-                    }
+                    SuggestionItemRow(
+                        title: "Bench Press",
+                        details: "3 sets × 10 reps | 20min"
+                    )
+                    
+                    SuggestionItemRow(
+                        title: "Deadlift",
+                        details: "3 sets × 8 reps | 20min"
+                    )
                 }
             }
+            .padding(16)
+            .background(Color.white)
+            .cornerRadius(16)
+            
+            // Dietary Section
+            VStack(alignment: .leading, spacing: 12) {
+                // Section Header
+                HStack(spacing: 8) {
+                    Image(systemName: "leaf.fill")
+                        .foregroundColor(.green)
+                        .font(.body)
+                    
+                    Text("Dietary")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                }
+                
+                // Dietary Items
+                VStack(spacing: 8) {
+                    SuggestionItemRow(
+                        title: "Protein",
+                        details: "100g | 2 Eggs"
+                    )
+                    
+                    SuggestionItemRow(
+                        title: "Fiber",
+                        details: "50g | 1 Carrot"
+                    )
+                    
+                    SuggestionItemRow(
+                        title: "Vitamin C",
+                        details: "2g | 1 Apple"
+                    )
+                }
+            }
+            .padding(16)
+            .background(Color.white)
+            .cornerRadius(16)
         }
         .padding(20)
-        .background(Color.white)
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 239/255, green: 245/255, blue: 255/255), // #EFF5FF
+                    Color(red: 250/255, green: 245/255, blue: 255/255)  // #FAF5FF
+                ]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 2)
     }
     
+    // MARK: - Action Buttons Section
+    private var actionButtonsSection: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                // Accept Button
+                Button(action: {
+                    // Accept action
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.body)
+                        
+                        Text("Accept")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.green.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.green, lineWidth: 1)
+                    )
+                    .cornerRadius(10)
+                }
+                
+                // Regenerate Button
+                Button(action: {
+                    // Regenerate action
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.clockwise.circle.fill")
+                            .foregroundColor(.blue)
+                            .font(.body)
+                        
+                        Text("Regenerate")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.blue.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.blue, lineWidth: 1)
+                    )
+                    .cornerRadius(10)
+                }
+            }
+            
+            HStack(spacing: 12) {
+                // Edit Button
+                Button(action: {
+                    // Edit action
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "pencil.circle.fill")
+                            .foregroundColor(.yellow)
+                            .font(.body)
+                        
+                        Text("Edit")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.yellow.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.yellow, lineWidth: 1)
+                    )
+                    .cornerRadius(10)
+                }
+                
+                // Delay Button
+                Button(action: {
+                    // Delay action
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "clock.fill")
+                            .foregroundColor(.gray)
+                            .font(.body)
+                        
+                        Text("Delay")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.gray, lineWidth: 1)
+                    )
+                    .cornerRadius(10)
+                }
+            }
+        }
+    }
     
-    // MARK: - Notification Section
-    private var notificationSection: some View {
+    // MARK: - Why AI Recommended This Section
+    // TODO: This section will be populated with backend data
+    private var whyAIRecommendedSection: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Header with match percentage and toggle
             HStack {
-                Text("Notification")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                Text("Why AI Recommended This")
+                    .font(.system(size: 13))
+                    .fontWeight(.bold)
                 
                 Spacer()
                 
-                Button("History") {
-                    // History action
+                HStack(spacing: 8) {
+                    // Gradient text for match percentage
+                    Text("92% match")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color(red: 62/255, green: 129/255, blue: 246/255),  // #3E81F6
+                                    Color(red: 135/255, green: 93/255, blue: 245/255)   // #875DF5
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
+                    
+                    Image(systemName: "chevron.up")
+                        .foregroundColor(.gray)
+                        .font(.caption)
                 }
-                .font(.caption)
-                .foregroundColor(.secondary)
             }
             
+            // Reason Cards - TODO: Will be populated from backend
             VStack(spacing: 12) {
-                // Notification Item 1
-                NotificationItem(
-                    color: .orange,
-                    title: "Ignored yesterday's suggestion",
-                    message: "Increase protein intake - 2 hours ago"
+                // Card 1: Perfect for Your Schedule
+                ReasonCard(
+                    title: "Perfect for Your Schedule",
+                    description: "You typically exercise in the night. This gentle yoga routine will help you wake up and set a positive tone for the day."
                 )
                 
-                // Notification Item 2
-                NotificationItem(
-                    color: .blue,
-                    title: "Training plan has been updated",
-                    message: "Adjusted based on sleep data - 1 day ago"
+                // Card 2: Low Impact, High Benefit
+                ReasonCard(
+                    title: "Low Impact, High Benefit",
+                    description: "Based on your current activity level, this workout provides effective stretching without overexertion."
                 )
                 
-                // Notification Item 3
-                NotificationItem(
-                    color: .green,
-                    title: "Goal Achievement Reminder",
-                    message: "This week's training completion rate: 90% - 2 days ago"
+                // Card 3: Builds Foundation
+                ReasonCard(
+                    title: "Builds Foundation",
+                    description: "Improves flexibility and core strength, which will support you as you progress to more intense activities."
                 )
             }
-            
-            Button("View All Notifications") {
-                // View all notifications action
-            }
-            .font(.subheadline)
-            .foregroundColor(.blue)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 8)
         }
         .padding(20)
         .background(Color.white)
@@ -314,31 +447,77 @@ struct SuggestionsView: View {
 }
 
 
-// MARK: - Notification Item
-struct NotificationItem: View {
-    let color: Color
+// MARK: - Suggestion Item Row
+struct SuggestionItemRow: View {
     let title: String
-    let message: String
+    let details: String
     
     var body: some View {
         HStack(spacing: 12) {
-            // Color indicator
-            RoundedRectangle(cornerRadius: 2)
-                .fill(color)
-                .frame(width: 4, height: 40)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            // Regenerate icon button
+            Button(action: {
+                // Regenerate this item
+                print("Regenerate \(title)")
+            }) {
+                Circle()
+                    .fill(Color.blue.opacity(0.2))
+                    .frame(width: 20, height: 20)
+                    .overlay(
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                            .fontWeight(.bold)
+                    )
             }
+            .buttonStyle(PlainButtonStyle())
+            
+            // Title
+            Text(title)
+                .font(.system(size: 12))
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
             
             Spacer()
+            
+            // Details
+            Text(details)
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
+    }
+}
+
+// MARK: - Reason Card
+struct ReasonCard: View {
+    let title: String
+    let description: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Gradient title
+            Text(title)
+                .font(.system(size: 13))
+                .fontWeight(.regular)
+                .foregroundStyle(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color(red: 62/255, green: 129/255, blue: 246/255),  // #3E81F6
+                            Color(red: 135/255, green: 93/255, blue: 245/255)   // #875DF5
+                        ]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            
+            Text(description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(nil)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(12)
     }
 }
 

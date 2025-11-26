@@ -31,25 +31,6 @@ struct AICoachTipCard: View {
                 .font(.subheadline)
                 .foregroundColor(.primary)
                 .lineLimit(nil)
-            
-            // Action Buttons
-            HStack(spacing: 12) {
-                ForEach(aiCoachTip.actions) { action in
-                    Button(action: {
-                        onActionTap(action)
-                    }) {
-                        Text(action.title)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Color.yellow.opacity(0.2))
-                            .cornerRadius(20)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
         }
         .padding(20)
         .background(Color.yellow.opacity(0.1))
