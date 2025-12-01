@@ -26,7 +26,7 @@ struct SettingsView: View {
         }
         .fullScreenCover(isPresented: $showingScanningView) {
             if let image = selectedImage {
-                ScanningView(selectedImage: image, mealType: "Snack", viewModel: viewModel)
+                ScanningView(isPresented: $showingScanningView, selectedImage: image, mealType: "Snack", viewModel: viewModel)
             }
         }
         .onChange(of: selectedImage) { oldValue, newValue in
@@ -216,7 +216,7 @@ struct WeeklyTrainingOverviewCard: View {
                 
                 Spacer()
                 
-                Text("Week 23")
+                Text("kcal")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -226,7 +226,8 @@ struct WeeklyTrainingOverviewCard: View {
                 HStack(alignment: .top, spacing: 0) {
                     // Y-axis labels
                     VStack(alignment: .trailing, spacing: 0) {
-                        ForEach([80, 60, 40, 20, 0], id: \.self) { value in
+                        // Adjusted Y-axis scale for calories (e.g. 0-800 kcal)
+                        ForEach([800, 600, 400, 200, 0], id: \.self) { value in
                             Text("\(value)")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
@@ -267,7 +268,8 @@ struct WeeklyTrainingOverviewCard: View {
                                             endPoint: .top
                                         )
                                     )
-                                    .frame(width: 28, height: max(CGFloat(calories) / 80 * 240, 2))
+                                    // Normalize height relative to max 800 kcal
+                                    .frame(width: 28, height: max(CGFloat(calories) / 800 * 240, 2))
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .center)

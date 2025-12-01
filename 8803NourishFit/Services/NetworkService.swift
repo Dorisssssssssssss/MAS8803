@@ -668,11 +668,64 @@ extension NetworkService {
         .receive(on: DispatchQueue.main)
         .eraseToAnyPublisher()
     }
+    
+    // MARK: - New: Weekly Intake History
+    func getWeeklyIntakeHistory() -> AnyPublisher<[Int], Error> {
+        return Future<[Int], Error> { promise in
+            let db = Firestore.firestore()
+            let userId = Auth.auth().currentUser?.uid ?? "demo_user_final_v2"
+            let calendar = Calendar.current
+            let today = Date()
+            // Get start of 6 days ago to cover last 7 days including today
+            guard let startOfPeriod = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: today)) else {
+                promise(.failure(NetworkError.apiError("Date calculation failed")))
+                return
+            }
+            
+            // Prepare array for 7 days initialized to 0
+            var weeklyData = Array(repeating: 0, count: 7)
+            
+            db.collection("meals")
+                .whereField("userId", isEqualTo: userId)
+                .whereField("timestamp", isGreaterThanOrEqualTo: Timestamp(date: startOfPeriod))
+                .getDocuments { snapshot, error in
+                    if let error = error {
+                        promise(.failure(error))
+                        return
+                    }
+                    
+                    guard let documents = snapshot?.documents else {
+                        promise(.success(weeklyData))
+                        return
+                    }
+                    
+                    for doc in documents {
+                        let data = doc.data()
+                        guard let timestampData = data["timestamp"] as? Timestamp else { continue }
+                        let date = timestampData.dateValue()
+                        
+                        // Calculate index (0 to 6)
+                        // Days from startOfPeriod
+                        let daysDiff = calendar.dateComponents([.day], from: startOfPeriod, to: calendar.startOfDay(for: date)).day ?? -1
+                        
+                        if daysDiff >= 0 && daysDiff < 7 {
+                            let items = data["recognizedFoods"] as? [[String: Any]] ?? data["items"] as? [[String: Any]] ?? []
+                            let calories = items.reduce(0) { $0 + ($1["calories"] as? Int ?? 0) }
+                            weeklyData[daysDiff] += calories
+                        }
+                    }
+                    
+                    promise(.success(weeklyData))
+                }
+        }
+        .receive(on: DispatchQueue.main)
+        .eraseToAnyPublisher()
+    }
 }
 
 // MARK: - AI Coach API (via Cloud Function)
 extension NetworkService {
-    func getTodayAISuggestion() -> AnyPublisher<AISuggestionResponse, Error> {
+    func getTodayAISuggestion(intake: Int? = nil, burned: Int? = nil, goal: Int? = nil) -> AnyPublisher<AISuggestionResponse, Error> {
         guard let url = aiCoachFunctionURL else {
             return Fail(error: NetworkError.invalidURL).eraseToAnyPublisher()
         }
@@ -680,7 +733,12 @@ extension NetworkService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: Any] = ["userId": userId]
+        
+        var body: [String: Any] = ["userId": userId]
+        if let intake = intake { body["intake"] = intake }
+        if let burned = burned { body["burned"] = burned }
+        if let goal = goal { body["goal"] = goal }
+        
         do { request.httpBody = try JSONSerialization.data(withJSONObject: body) } catch {
             return Fail(error: NetworkError.encodingError).eraseToAnyPublisher()
         }

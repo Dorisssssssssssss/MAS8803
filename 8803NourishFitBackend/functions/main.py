@@ -691,7 +691,7 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
 def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
     """
     Generate today's AI coach suggestion using Coze, with simple Firestore context.
-    Request (JSON): { userId: string }
+    Request (JSON): { userId: string, intake: int?, burned: int?, goal: int? }
     Response (JSON): {
       id, message, timestamp, actions: [{id,title,type}], suggestions:{training:{...}, diet:{...}}, reasoning
     }
@@ -716,6 +716,11 @@ def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
         user_id = payload.get('userId') or req.args.get('userId')
         if not user_id:
             return https_fn.Response(json.dumps({'error': 'Missing userId'}), status=400, headers=headers)
+
+        # Get current stats from request
+        current_intake = payload.get('intake', 0)
+        current_burned = payload.get('burned', 0)
+        daily_goal = payload.get('goal', 2000)
 
         # Fetch recent meals/workouts as lightweight context
         db = firestore.client()
@@ -743,7 +748,9 @@ def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
 
         # Compose Coze request
         system_prompt = (
-            'You are a fitness and nutrition AI coach. Based on the user\'s recent meals and workouts, '
+            f'You are a fitness and nutrition AI coach. '
+            f'User status today: Intake {current_intake} kcal / Goal {daily_goal} kcal, Burned {current_burned} kcal. '
+            f'Based on this balance and recent meals/workouts, '
             'produce one concise, actionable daily suggestion. Output ONLY JSON with keys: '
             '{"id","message","timestamp","actions":[{"id","title","type"}],'
             '"suggestions":{"training":{"title","description","icon"},"diet":{"title","description","icon"}},'
@@ -756,7 +763,19 @@ def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
             "query": system_prompt,
             "stream": False,
             "additional_messages": [
-                { 'role': 'user', 'content': json.dumps({ 'recentMeals': meals_ctx, 'recentWorkouts': workouts_ctx }, ensure_ascii=False), 'content_type': 'text' }
+                { 
+                    'role': 'user', 
+                    'content': json.dumps({ 
+                        'currentStats': {
+                            'intake': current_intake,
+                            'burned': current_burned,
+                            'goal': daily_goal
+                        },
+                        'recentMeals': meals_ctx, 
+                        'recentWorkouts': workouts_ctx 
+                    }, ensure_ascii=False), 
+                    'content_type': 'text' 
+                }
             ]
         }
 
@@ -812,7 +831,7 @@ def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
         # Fallback suggestion
         fallback = {
             'id': user_id,
-            'message': 'Add a 20-minute brisk walk and increase today\'s protein by ~15g.',
+            'message': f'Today you have consumed {current_intake} kcal and burned {current_burned} kcal. Keep it up!',
             'timestamp': 'now',
             'actions': [ { 'id': 'walk', 'title': 'Take a Walk', 'type': 'walk' } ],
             'suggestions': {

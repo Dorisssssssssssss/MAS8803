@@ -284,18 +284,46 @@ class AppViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        // 直接设置认证状态，跳过Firebase认证
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.isLoading = false
-            self.isAuthenticated = true
-            self.loadTodayMeals()
-            self.refreshAICoachTip()
+        print("🔑 Attempting real Firebase Anonymous Sign-in...")
+        Auth.auth().signInAnonymously { [weak self] result, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                if let error = error {
+                    print("❌ Firebase Sign-in failed: \(error.localizedDescription)")
+                    
+                    // SUPPRESS "restricted to administrators" error for demo purposes
+                    // Error code 17020 corresponds to "This operation is restricted to administrators only." (FIRAuthErrorAdminRestrictedOperation)
+                    // We check the localized description to be safe.
+                    let errorString = error.localizedDescription
+                    if errorString.contains("restricted to administrators") || (error as NSError).code == 17020 {
+                        print("⚠️ Anonymous Auth disabled in Console. Falling back to DEMO MODE.")
+                        self?.isAuthenticated = true
+                        // Don't show error message to user
+                        self?.errorMessage = nil
+                    } else {
+                        self?.errorMessage = error.localizedDescription
+                        // Allow fallback to proceed in partial functionality mode
+                        self?.isAuthenticated = true
+                    }
+                } else {
+                    print("✅ Firebase Sign-in successful. User ID: \(result?.user.uid ?? "unknown")")
+                    self?.isAuthenticated = true
+                    // Retry AI Coach refresh now that we are signed in
+                    self?.refreshAICoachTip()
+                }
+                
+                // Refresh data regardless (will use fallback user ID if auth failed)
+                self?.loadTodayMeals()
+            }
         }
     }
     
     // MARK: - Food Recognition
     func recognizeFood(image: UIImage, mealType: String) {
         print("🍎 Starting food recognition for meal type: \(mealType)")
+        // Clear previous analysis to prevent stale data
+        self.currentFoodAnalysis = nil
+        
         isLoading = true
         errorMessage = nil
         
@@ -351,7 +379,42 @@ class AppViewModel: ObservableObject {
         let startDate = formatter.string(from: oneWeekAgo)
         let endDate = formatter.string(from: today)
         
-        // Load workout history
+        // 1. Load workout calorie history from HealthKit
+        healthKitService.fetchWeeklyActiveEnergyBurned()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to fetch HealthKit weekly calories: \(error.localizedDescription)")
+                        // Fallback to Firestore if HealthKit fails
+                        self?.loadFirestoreWorkoutHistory(startDate: startDate, endDate: endDate)
+                    }
+                },
+                receiveValue: { [weak self] history in
+                    print("✅ Fetched \(history.count) days of workout calories from HealthKit")
+                    self?.weeklyWorkoutHistory = history
+                }
+            )
+            .store(in: &cancellables)
+            
+        // 2. Load real intake history from Firestore (last 7 days)
+        networkService.getWeeklyIntakeHistory()
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Failed to fetch weekly intake: \(error.localizedDescription)")
+                    }
+                },
+                receiveValue: { [weak self] history in
+                    print("✅ Fetched weekly intake history: \(history)")
+                    self?.weeklyIntakeHistory = history
+                }
+            )
+            .store(in: &cancellables)
+    }
+    
+    private func loadFirestoreWorkoutHistory(startDate: String, endDate: String) {
         networkService.getWorkoutHistory(startDate: startDate, endDate: endDate)
             .receive(on: DispatchQueue.main)
             .sink(
@@ -361,19 +424,6 @@ class AppViewModel: ObservableObject {
                 }
             )
             .store(in: &cancellables)
-            
-        // For intake history, we'll simulate it for now based on today's meals or fetch real if API exists
-        // Since getTodayMeals only gets today, we might need a new API for range.
-        // For MVP, let's just fetch today and fill others with dummy or 0 to show at least today updates.
-        // Or better, let's implement a simple getMealsHistory in NetworkService if possible, 
-        // but for speed, let's mock the past days and use real today data.
-        
-        // Update today's value in the intake history array
-        // Assuming weeklyIntakeHistory is [Mon, Tue, Wed, Thu, Fri, Sat, Sun] or last 7 days
-        // Let's make it simple: Last 7 days array
-        var intake = [1800, 1950, 1700, 2100, 1850, 2200, 0] // Mock past 6 days
-        intake[6] = totalCaloriesToday // Set today's (last index) to real value
-        self.weeklyIntakeHistory = intake
     }
     
     func loadTodayMeals() {
@@ -410,16 +460,41 @@ class AppViewModel: ObservableObject {
     }
     
     func refreshAICoachTip() {
-        guard Auth.auth().currentUser != nil else { return }
-        networkService.getTodayAISuggestion()
+        print("🔄 refreshAICoachTip called")
+        
+        // If not signed in, try to sign in first
+        if Auth.auth().currentUser == nil {
+            print("⚠️ User not authenticated, attempting anonymous sign-in...")
+            signInAnonymously()
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        print("⏳ Setting isLoading = true, starting network request...")
+        
+        // Gather current stats to send to AI
+        let intake = totalCaloriesToday
+        // Use HealthKit burned if available, otherwise fallback to calorieBalance or 0
+        let burned = Int(healthKitService.activeEnergyBurned) > 0 ? Int(healthKitService.activeEnergyBurned) : (calorieBalance?.burned ?? 0)
+        let goal = userProfile.dailyCalorieGoal
+        
+        print("📊 Sending stats - Intake: \(intake), Burned: \(burned), Goal: \(goal)")
+        
+        networkService.getTodayAISuggestion(intake: intake, burned: burned, goal: goal)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in
+                    self?.isLoading = false
                     if case .failure(let error) = completion {
+                        print("❌ AI Refresh failed: \(error.localizedDescription)")
                         self?.errorMessage = error.localizedDescription
+                    } else {
+                        print("✅ AI Refresh completed successfully")
                     }
                 },
                 receiveValue: { [weak self] response in
+                    print("📦 Received AI response: \(response.message.prefix(50))...")
                     self?.aiSuggestionDetails = response
                     let actions = response.actions.isEmpty ? [TipAction(title: "Review plan", type: .workout)] : response.actions
                     self?.aiCoachTip = AICoachTip(

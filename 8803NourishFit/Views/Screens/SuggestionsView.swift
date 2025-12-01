@@ -100,7 +100,7 @@ struct SuggestionsView: View {
         }
         .fullScreenCover(isPresented: $showingScanningView) {
             if let image = selectedImage {
-                ScanningView(selectedImage: image, mealType: "Snack", viewModel: viewModel)
+                ScanningView(isPresented: $showingScanningView, selectedImage: image, mealType: "Snack", viewModel: viewModel)
             }
         }
         .onChange(of: selectedImage) { _, newValue in
@@ -120,6 +120,17 @@ struct SuggestionsView: View {
                 }
             }
         }
+        .alert(item: Binding<AlertItem?>(
+            get: { viewModel.errorMessage.map { AlertItem(message: $0) } },
+            set: { _ in viewModel.errorMessage = nil }
+        )) { item in
+            Alert(title: Text("Error"), message: Text(item.message), dismissButton: .default(Text("OK")))
+        }
+    }
+    
+    struct AlertItem: Identifiable {
+        var id = UUID()
+        var message: String
     }
     
     // MARK: - Header View
@@ -342,11 +353,16 @@ struct SuggestionsView: View {
                     viewModel.refreshAICoachTip()
                 }) {
                     HStack(spacing: 8) {
-                        Image(systemName: "arrow.clockwise.circle.fill")
-                            .foregroundColor(.blue)
-                            .font(.body)
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "arrow.clockwise.circle.fill")
+                                .foregroundColor(.blue)
+                                .font(.body)
+                        }
                         
-                        Text("Regenerate")
+                        Text(viewModel.isLoading ? "Thinking..." : "Regenerate")
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundColor(.primary)
@@ -360,6 +376,7 @@ struct SuggestionsView: View {
                     )
                     .cornerRadius(10)
                 }
+                .disabled(viewModel.isLoading)
             }
             
             HStack(spacing: 12) {

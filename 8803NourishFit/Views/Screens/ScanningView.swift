@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Scanning View
 struct ScanningView: View {
     @Environment(\.dismiss) private var dismiss
+    @Binding var isPresented: Bool // Add binding to control dismissal
     let selectedImage: UIImage
     let mealType: String
     @ObservedObject var viewModel: AppViewModel
@@ -36,8 +37,14 @@ struct ScanningView: View {
             .background(Color.white)
         }
         .navigationBarHidden(true)
-        .fullScreenCover(isPresented: $showingResultView) {
-            FoodAnalysisResultView(selectedImage: selectedImage, mealType: mealType, viewModel: viewModel)
+        .fullScreenCover(isPresented: $showingResultView, onDismiss: {
+            // If the result view was dismissed and the analysis data is cleared (meaning it was saved),
+            // we should also dismiss the scanning view.
+            if viewModel.currentFoodAnalysis == nil {
+                isPresented = false
+            }
+        }) {
+            FoodAnalysisResultView(isPresented: $isPresented, selectedImage: selectedImage, mealType: mealType, viewModel: viewModel)
         }
         .alert(isPresented: $showErrorAlert) {
             Alert(
@@ -383,6 +390,7 @@ struct CornerBrackets: Shape {
 // MARK: - Preview
 #Preview {
     ScanningView(
+        isPresented: .constant(true),
         selectedImage: UIImage(systemName: "photo")!,
         mealType: "Breakfast",
         viewModel: AppViewModel()

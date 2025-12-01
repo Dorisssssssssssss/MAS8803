@@ -115,7 +115,7 @@ struct HomeView: View {
         }
         .fullScreenCover(isPresented: $showingScanningView) {
             if let image = selectedImage {
-                ScanningView(selectedImage: image, mealType: selectedMealType, viewModel: viewModel)
+                ScanningView(isPresented: $showingScanningView, selectedImage: image, mealType: selectedMealType, viewModel: viewModel)
             }
         }
         .onChange(of: selectedImage) { _, newValue in

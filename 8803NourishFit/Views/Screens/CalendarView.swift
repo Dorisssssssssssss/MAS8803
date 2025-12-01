@@ -27,7 +27,7 @@ struct CalendarView: View {
         }
         .fullScreenCover(isPresented: $showingScanningView) {
             if let image = selectedImage {
-                ScanningView(selectedImage: image, mealType: "Snack", viewModel: viewModel)
+                ScanningView(isPresented: $showingScanningView, selectedImage: image, mealType: "Snack", viewModel: viewModel)
             }
         }
         .onChange(of: selectedImage) { oldValue, newValue in

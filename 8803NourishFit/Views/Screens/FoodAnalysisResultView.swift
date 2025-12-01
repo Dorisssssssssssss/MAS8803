@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Food Analysis Result View
 struct FoodAnalysisResultView: View {
     @Environment(\.dismiss) private var dismiss
+    @Binding var isPresented: Bool // Binding to dismiss the entire flow
     let selectedImage: UIImage
     let mealType: String // Add mealType
     @ObservedObject var viewModel: AppViewModel
@@ -112,12 +113,12 @@ struct FoodAnalysisResultView: View {
             
             // Add to Intake Button (Moved to Header for better accessibility)
             Button(action: {
-                // Call confirmMeal to save data and then dismiss
+                // Call confirmMeal to save data
                 viewModel.confirmMeal(mealType: mealType)
-                // Dismiss after a short delay to allow API call to start and user to see feedback
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    dismiss()
-                }
+                
+                // Dismiss the entire flow (ScanningView and this view)
+                // Setting isPresented to false will dismiss ScanningView, which implicitly dismisses this view
+                isPresented = false
             }) {
                 if viewModel.isLoading {
                     ProgressView()
@@ -486,6 +487,7 @@ struct FoodAnalysisData {
 // MARK: - Preview
 #Preview {
     FoodAnalysisResultView(
+        isPresented: .constant(true),
         selectedImage: UIImage(systemName: "photo")!,
         mealType: "Lunch",
         viewModel: AppViewModel()
