@@ -8,6 +8,12 @@ struct UserProfile: Identifiable, Codable {
     var goal: FitnessGoal
     var profileImage: String?
     
+    // Nutritional Goals
+    var dailyCalorieGoal: Int
+    var proteinGoal: Int // g
+    var carbsGoal: Int // g
+    var fatGoal: Int // g
+    
     enum FitnessLevel: String, CaseIterable, Codable {
         case beginner = "Fitness Beginner"
         case intermediate = "Intermediate"

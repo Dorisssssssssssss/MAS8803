@@ -21,9 +21,22 @@
 		DC59AC9F2E9F1EE6002AC5C4 /* 8803NourishFit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 8803NourishFit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1289DC3D2EDDA46E00D89A12 /* Exceptions for "8803NourishFit" folder in "8803NourishFit" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"-803NourishFit-Info.plist",
+			);
+			target = DC59AC9E2E9F1EE6002AC5C4 /* 8803NourishFit */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DC59ACA12E9F1EE6002AC5C4 /* 8803NourishFit */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1289DC3D2EDDA46E00D89A12 /* Exceptions for "8803NourishFit" folder in "8803NourishFit" target */,
+			);
 			path = 8803NourishFit;
 			sourceTree = "<group>";
 		};
@@ -289,11 +302,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = 8803NourishFit/8803NourishFit.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2Y82AH53T5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "-803NourishFit-Info.plist";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your active energy burned data to track your daily calorie consumption.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We verify your workout data to provide accurate coaching.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -321,11 +338,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = 8803NourishFit/8803NourishFit.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2Y82AH53T5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "-803NourishFit-Info.plist";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your active energy burned data to track your daily calorie consumption.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We verify your workout data to provide accurate coaching.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

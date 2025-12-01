@@ -4,28 +4,24 @@ import SwiftUI
 struct FoodAnalysisResultView: View {
     @Environment(\.dismiss) private var dismiss
     let selectedImage: UIImage
+    let mealType: String // Add mealType
     @ObservedObject var viewModel: AppViewModel
     
-    // TODO: Replace with actual data from backend
+    // Data from ViewModel
     @State private var analysisResult = FoodAnalysisData(
-        foodName: "Tonkotsu Ramen",
-        matchPercentage: 89,
-        servingSize: "230g (1 serving)",
-        totalCalories: 900,
-        calories: 900,
-        protein: 30,
-        carbs: 70,
-        fat: 70,
-        ingredients: [
-            IngredientData(name: "Egg", amount: "100g", calories: 50),
-            IngredientData(name: "Noodle", amount: "200g", calories: 239),
-            IngredientData(name: "Chashu pork", amount: "50g", calories: 85),
-            IngredientData(name: "Green Onion", amount: "3g", calories: 1),
-            IngredientData(name: "Soup", amount: "600g", calories: 1200)
-        ],
-        fiber: 2,
-        sugar: 2,
-        nutritionalInsight: "This meal provides a good balance of macronutrients. Consider pairing it with vegetables to increase fiber and vitamins."
+        foodName: "Loading...",
+        matchPercentage: 0,
+        servingSize: "--",
+        totalCalories: 0,
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        ingredients: [],
+        fiber: 0,
+        sugar: 0,
+        vitaminC: 0,
+        nutritionalInsight: "Analyzing..."
     )
     
     var body: some View {
@@ -59,6 +55,46 @@ struct FoodAnalysisResultView: View {
             .background(Color.white)
         }
         .navigationBarHidden(true)
+        .onAppear {
+            updateDataFromViewModel()
+        }
+    }
+    
+    private func updateDataFromViewModel() {
+        guard let analysis = viewModel.currentFoodAnalysis else { return }
+        
+        let mainFood = analysis.recognizedFoods.first
+        let totalCalories = analysis.recognizedFoods.reduce(0) { $0 + $1.calories }
+        let totalProtein = analysis.recognizedFoods.reduce(0.0) { $0 + $1.protein }
+        let totalCarbs = analysis.recognizedFoods.reduce(0.0) { $0 + $1.carbs }
+        let totalFat = analysis.recognizedFoods.reduce(0.0) { $0 + $1.fat }
+        let totalFiber = analysis.recognizedFoods.reduce(0.0) { $0 + ($1.fiber ?? 0) }
+        let totalSugar = analysis.recognizedFoods.reduce(0.0) { $0 + ($1.sugar ?? 0) }
+        let totalVitaminC = analysis.recognizedFoods.reduce(0.0) { $0 + ($1.vitaminC ?? 0) }
+        
+        let ingredients = analysis.recognizedFoods.map { food in
+            IngredientData(
+                name: food.name,
+                amount: food.weight ?? "1 serving",
+                calories: food.calories
+            )
+        }
+        
+        analysisResult = FoodAnalysisData(
+            foodName: mainFood?.name ?? "Unknown Meal",
+            matchPercentage: Int((mainFood?.confidence ?? 0.8) * 100),
+            servingSize: mainFood?.weight ?? "1 serving",
+            totalCalories: totalCalories,
+            calories: totalCalories,
+            protein: Int(totalProtein),
+            carbs: Int(totalCarbs),
+            fat: Int(totalFat),
+            ingredients: ingredients,
+            fiber: Int(totalFiber),
+            sugar: Int(totalSugar),
+            vitaminC: Int(totalVitaminC),
+            nutritionalInsight: analysis.nutritionalInsight ?? "Good balance of nutrients."
+        )
     }
     
     // MARK: - Header View
@@ -73,6 +109,27 @@ struct FoodAnalysisResultView: View {
             }
             
             Spacer()
+            
+            // Add to Intake Button (Moved to Header for better accessibility)
+            Button(action: {
+                // Call confirmMeal to save data and then dismiss
+                viewModel.confirmMeal(mealType: mealType)
+                // Dismiss after a short delay to allow API call to start and user to see feedback
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    dismiss()
+                }
+            }) {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        .scaleEffect(0.8)
+                } else {
+                    Text("Add to Intake")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Color(red: 0/255, green: 122/255, blue: 255/255))
+                }
+            }
+            .disabled(viewModel.isLoading)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
@@ -86,20 +143,6 @@ struct FoodAnalysisResultView: View {
                 .foregroundColor(.primary)
             
             Spacer()
-            
-            // Add to Intake Button
-            Button(action: {
-                // TODO: Add to intake action
-                dismiss()
-            }) {
-                Text("Add to Intake")
-                    .font(.system(size: 13))
-                    .foregroundColor(Color(red: 0/255, green: 122/255, blue: 255/255))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(Color(red: 239/255, green: 246/255, blue: 255/255))
-                    .cornerRadius(5)
-            }
         }
     }
     
@@ -343,6 +386,18 @@ struct FoodAnalysisResultView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
+                
+                HStack {
+                    Text("Vitamin C")
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Text("\(analysisResult.vitaminC)mg")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding(15)
@@ -424,6 +479,7 @@ struct FoodAnalysisData {
     let ingredients: [IngredientData]
     let fiber: Int
     let sugar: Int
+    let vitaminC: Int
     let nutritionalInsight: String
 }
 
@@ -431,6 +487,7 @@ struct FoodAnalysisData {
 #Preview {
     FoodAnalysisResultView(
         selectedImage: UIImage(systemName: "photo")!,
+        mealType: "Lunch",
         viewModel: AppViewModel()
     )
 }

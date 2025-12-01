@@ -4,11 +4,13 @@ import SwiftUI
 struct ScanningView: View {
     @Environment(\.dismiss) private var dismiss
     let selectedImage: UIImage
+    let mealType: String
     @ObservedObject var viewModel: AppViewModel
     
     @State private var currentStep: ScanningStep = .analyzing
     @State private var progress: Double = 0.0
     @State private var showingResultView = false
+    @State private var showErrorAlert = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -35,7 +37,16 @@ struct ScanningView: View {
         }
         .navigationBarHidden(true)
         .fullScreenCover(isPresented: $showingResultView) {
-            FoodAnalysisResultView(selectedImage: selectedImage, viewModel: viewModel)
+            FoodAnalysisResultView(selectedImage: selectedImage, mealType: mealType, viewModel: viewModel)
+        }
+        .alert(isPresented: $showErrorAlert) {
+            Alert(
+                title: Text("Analysis Failed"),
+                message: Text(viewModel.errorMessage ?? "Unknown error occurred"),
+                dismissButton: .default(Text("OK")) {
+                    dismiss()
+                }
+            )
         }
         .onAppear {
             startScanning()
@@ -171,6 +182,9 @@ struct ScanningView: View {
     
     // MARK: - Start Scanning Animation
     private func startScanning() {
+        // Start the API call
+        viewModel.recognizeFood(image: selectedImage, mealType: mealType)
+        
         // Step 1: Analyzing (0-33%)
         withAnimation(.linear(duration: 1.0)) {
             progress = 0.33
@@ -184,20 +198,42 @@ struct ScanningView: View {
                 progress = 0.84
             }
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                currentStep = .calculating
-                
-                // Step 3: Calculating (84-100%)
-                withAnimation(.linear(duration: 1.0)) {
-                    progress = 1.0
+            // Wait for API to finish
+            waitForAnalysisCompletion()
+        }
+    }
+    
+    private func waitForAnalysisCompletion() {
+        print("⏳ Waiting for analysis completion...")
+        // Check if analysis is done
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+            if !viewModel.isLoading {
+                if viewModel.currentFoodAnalysis != nil {
+                    print("✅ Analysis completed successfully!")
+                    timer.invalidate()
+                    finishScanning()
+                } else if let error = viewModel.errorMessage {
+                    print("❌ Analysis failed with error: \(error)")
+                    timer.invalidate()
+                    // Show alert instead of dismissing immediately
+                    showErrorAlert = true
                 }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    // Complete - show result view
-                    showingResultView = true
-                    // TODO: Call backend API here
-                    // viewModel.recognizeFood(image: selectedImage, mealType: "Breakfast")
-                }
+            }
+        }
+    }
+    
+    private func finishScanning() {
+        DispatchQueue.main.async {
+            currentStep = .calculating
+            
+            // Step 3: Calculating (84-100%)
+            withAnimation(.linear(duration: 0.5)) {
+                progress = 1.0
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                // Complete - show result view
+                showingResultView = true
             }
         }
     }
@@ -348,6 +384,7 @@ struct CornerBrackets: Shape {
 #Preview {
     ScanningView(
         selectedImage: UIImage(systemName: "photo")!,
+        mealType: "Breakfast",
         viewModel: AppViewModel()
     )
 }

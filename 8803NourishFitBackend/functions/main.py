@@ -162,7 +162,7 @@ def get_oauth_access_token(client_id, client_secret=None):
 # 根据Coze API文档，使用v3/chat端点
 COZE_URL = 'https://api.coze.cn/v3/chat'
 
-@https_fn.on_request()
+@https_fn.on_request(timeout_sec=300)
 def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
     """
     HTTP Cloud Function 作为 Coze Agent 的代理。
@@ -253,7 +253,7 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
         print(f"📸 Image content length: {len(image_content)}, starts with: {image_content[:20]}...")
         
         # 初始化query_text和messages_list
-        query_text = "分析图片中的食物"  # 默认query
+        query_text = "分析图片中的食物。请返回详细的营养信息，包括重量(weight)、热量(calories)、蛋白质(protein)、脂肪(fat)、碳水(carbs)、纤维(fiber)、糖(sugar)和维生素C(vitamin_c)。同时提供一段简短的营养分析建议(nutritional_insight)。请以JSON格式输出，包含items列表和totals汇总。"
         messages_list = []
         
         # 上传图片到Coze API
@@ -299,7 +299,7 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                         },
                         {
                             "type": "text",
-                            "text": "分析图片中的食物"
+                            "text": query_text
                         }
                     ]
                     
@@ -320,33 +320,17 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                     messages_list = [
                         {
                             "role": "user",
-                            "content": "分析图片中的食物", 
+                            "content": query_text, 
                             "content_type": "text"
                         }
                     ]
-                
-                # 如果上面的方式不行，可以尝试：
-                # messages_list = [
-                #     {
-                #         "role": "user",
-                #         "content": {
-                #             "file_id": file_id
-                #         },
-                #         "content_type": "image"
-                #     },
-                #     {
-                #         "role": "user",
-                #         "content": "请分析这份餐食并严格输出 JSON。", 
-                #         "content_type": "text"
-                #     }
-                # ]
             else:
                 print(f"⚠️ Image upload failed, using text only")
                 # 如果上传失败，只使用文本
                 messages_list = [
                     {
                         "role": "user",
-                        "content": "分析图片中的食物", 
+                        "content": query_text, 
                         "content_type": "text"
                     }
                 ]
@@ -358,27 +342,10 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
             messages_list = [
                 {
                     "role": "user",
-                    "content": "分析图片中的食物", 
+                    "content": query_text, 
                     "content_type": "text"
                 }
             ]
-        
-        # 如果上面的方式不行，可以尝试将图片和文本合并到一个消息中：
-        # messages_list = [
-        #     {
-        #         "role": "user",
-        #         "content": [
-        #             {
-        #                 "type": "text",
-        #                 "text": "请分析这份餐食并严格输出 JSON。"
-        #             },
-        #             {
-        #                 "type": "image",
-        #                 "image": image_content
-        #             }
-        #         ]
-        #     }
-        # ]
         
         print(f"📤 Messages list: {len(messages_list)} messages")
         first_msg = messages_list[0]
@@ -388,38 +355,6 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                 print(f"📤 Content item {i}: type={item.get('type')}, length={len(str(item.get('text') or item.get('image', '')))}")
         else:
             print(f"📤 First message type: {first_msg.get('content_type')}, content length: {len(str(first_msg.get('content', '')))}")
-        
-        # 方式2: 如果上面的方式不行，可以尝试将图片和文本合并到一个消息中
-        # messages_list = [
-        #     {
-        #         "role": "user",
-        #         "content": [
-        #             {
-        #                 "type": "text",
-        #                 "text": "请分析这份餐食并严格输出 JSON。"
-        #             },
-        #             {
-        #                 "type": "image",
-        #                 "image": image_content
-        #             }
-        #         ]
-        #     }
-        # ]
-        
-        # 如果上面的方式不行，可以尝试：
-        # 方式2: 使用image_base64 content_type
-        # messages_list.append({
-        #     "role": "user",
-        #     "content": image_content,
-        #     "content_type": "image_base64"
-        # })
-        
-        # 方式3: 使用image_url格式（需要先上传图片到URL）
-        # messages_list.append({
-        #     "role": "user",
-        #     "content": {"url": image_url},
-        #     "content_type": "image_url"
-        # })
         
         # 根据Coze API v3文档，构造请求体
         coze_request_body = {
@@ -504,14 +439,6 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
         print(f"📦 Coze API response data keys: {list(coze_data.keys())}")
         print(f"📦 Coze API response data (first 500 chars): {str(coze_data)[:500]}")
 
-        # 根据文档，非流式响应的结构是：
-        # {
-        #     "data": { "id": "...", "conversation_id": "...", "status": "...", ... },
-        #     "code": 0,
-        #     "msg": ""
-        # }
-        # 消息需要通过"查看对话消息详情"接口获取
-        
         # 检查响应结构
         if coze_data.get('code') != 0:
             error_msg = coze_data.get('msg', 'Unknown error')
@@ -534,10 +461,9 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
         print(f"📋 Chat ID: {chat_id}, Conversation ID: {conversation_id}, Status: {status}")
         
         # 根据文档，如果对话未完成，需要轮询"查看对话详情"接口
-        # 直到状态为 completed、required_action、canceled 或 failed
         import time
         max_poll_attempts = 120  # 最多轮询120次（约2分钟）
-        poll_interval = 1  # 每次间隔1秒（根据文档建议：每秒轮询一次）
+        poll_interval = 1  # 每次间隔1秒
         poll_attempt = 0
         
         # 终态列表
@@ -549,7 +475,7 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                 print(f"⏳ Chat is in progress, waiting {poll_interval} seconds before polling again... (attempt {poll_attempt + 1}/{max_poll_attempts})")
                 time.sleep(poll_interval)
                 
-                # 调用"查看对话详情"接口（根据文档，端点是 /v3/chat/retrieve）
+                # 调用"查看对话详情"接口
                 chat_detail_url = f"https://api.coze.cn/v3/chat/retrieve"
                 chat_detail_params = {
                     'chat_id': chat_id,
@@ -579,7 +505,6 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                 
                 poll_attempt += 1
             else:
-                # 如果状态不是 in_progress，直接退出循环
                 break
         
         if status not in final_statuses:
@@ -673,8 +598,8 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                 print(f"✅ Successfully parsed JSON from Coze response")
                 
                 # 转换Coze返回的格式为前端期望的格式
-                # Coze格式: {"meal_id": "...", "items": [...], "totals": {...}}
-                # 前端期望: {"recognizedFoods": [{"name": "...", "calories": ..., ...}]}
+                # Coze格式: {"items": [{"food_name": "...", "calories": 100, "weight": "200g", "fiber_grams": 2, "sugar_grams": 1}], "totals": {...}, "nutritional_insight": "..."}
+                # 前端期望: {"recognizedFoods": [{"name": "...", "calories": ..., "weight": "200g", "fiber": 2, "sugar": 1}], "nutritionalInsight": "..."}
                 
                 recognized_foods = []
                 items = coze_json.get('items', [])
@@ -682,11 +607,15 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                 for item in items:
                     food_item = {
                         "name": item.get('food_name', 'Unknown Food'),
-                        "confidence": 0.9,  # 默认置信度，Coze没有提供
+                        "confidence": 0.9,  # 默认置信度
                         "calories": int(item.get('calories', 0)),
                         "protein": float(item.get('protein_grams', 0)),
                         "carbs": float(item.get('carbs_grams', 0)),
-                        "fat": float(item.get('fat_grams', 0))
+                        "fat": float(item.get('fat_grams', 0)),
+                        "fiber": float(item.get('fiber_grams', 0)),  # 新增
+                        "sugar": float(item.get('sugar_grams', 0)),  # 新增
+                        "vitamin_c": float(item.get('vitamin_c_mg', 0)),  # 新增
+                        "weight": item.get('weight', 'N/A')  # 新增
                     }
                     recognized_foods.append(food_item)
                 
@@ -700,16 +629,24 @@ def recognize_food_proxy(req: https_fn.Request) -> https_fn.Response:
                             "calories": int(totals.get('total_calories', 0)),
                             "protein": float(totals.get('total_protein', 0)),
                             "carbs": float(totals.get('total_carbs', 0)),
-                            "fat": float(totals.get('total_fat', 0))
+                            "fat": float(totals.get('total_fat', 0)),
+                            "fiber": float(totals.get('total_fiber', 0)),
+                            "sugar": float(totals.get('total_sugar', 0)),
+                            "vitamin_c": float(totals.get('total_vitamin_c', 0)),
+                            "weight": "N/A"
                         }
                         recognized_foods.append(food_item)
                 
+                # 获取营养建议
+                nutritional_insight = coze_json.get('nutritional_insight', 'Enjoy your meal!')
+                
                 # 构造前端期望的格式
                 final_json = {
-                    "recognizedFoods": recognized_foods
+                    "recognizedFoods": recognized_foods,
+                    "nutritionalInsight": nutritional_insight
                 }
                 
-                print(f"📤 Converted to frontend format: {len(recognized_foods)} foods")
+                print(f"📤 Converted to frontend format: {len(recognized_foods)} foods, insight length: {len(nutritional_insight)}")
                 # 成功解析并转换，返回给前端
                 return https_fn.Response(json.dumps(final_json), status=200, headers=response_headers)
             except json.JSONDecodeError as e:
@@ -771,8 +708,8 @@ def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
 
     try:
         # 确保配置已加载
-        api_key, bot_id = get_config()
-        if not api_key or not bot_id:
+        api_key, oauth_client_id, oauth_client_secret, bot_id = get_config()
+        if not api_key and not bot_id:
             return https_fn.Response(json.dumps({'error': 'Server configuration error'}), status=500, headers=headers)
         
         payload = req.get_json(silent=True) or {}
@@ -814,12 +751,11 @@ def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
         )
 
         coze_request_body = {
-            'conversation_id': user_id,
-            'bot_id': bot_id,
-            'user': user_id,
-            'query': system_prompt,
-            'stream': False,
-            'messages': [
+            "bot_id": str(bot_id),
+            "user_id": user_id,
+            "query": system_prompt,
+            "stream": False,
+            "additional_messages": [
                 { 'role': 'user', 'content': json.dumps({ 'recentMeals': meals_ctx, 'recentWorkouts': workouts_ctx }, ensure_ascii=False), 'content_type': 'text' }
             ]
         }
@@ -834,7 +770,31 @@ def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
         r.raise_for_status()
         coze_data = r.json()
 
-        messages = coze_data.get('messages', [])
+        # 处理非流式响应
+        messages = []
+        if coze_data.get('code') == 0:
+            # 需要轮询获取消息（简化起见，这里假设AI Coach响应较快，或者直接使用data中的信息如果可用）
+            # 注意：实际生产环境应该像上面那样轮询
+            # 这里为了保持简洁，我们尝试直接获取消息
+            
+            # 获取chat_id
+            chat_id = coze_data.get('data', {}).get('id')
+            conversation_id = coze_data.get('data', {}).get('conversation_id')
+            
+            # 简单轮询几次
+            import time
+            for _ in range(10):
+                time.sleep(1)
+                msgs_resp = requests.get(
+                    f"https://api.coze.cn/v3/chat/message/list?chat_id={chat_id}&conversation_id={conversation_id}",
+                    headers=coze_headers
+                )
+                if msgs_resp.status_code == 200 and msgs_resp.json().get('data'):
+                    messages = msgs_resp.json().get('data', [])
+                    # 检查是否有assistant的消息
+                    if any(m.get('role') == 'assistant' for m in messages):
+                        break
+        
         json_message = next((m for m in messages if m.get('content_type') == 'text' and '{' in m.get('content', '')), None)
         if json_message:
             content = json_message['content'].strip()
@@ -867,5 +827,3 @@ def ai_coach_suggestion(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response(json.dumps({'error': f'Coze error: {e}'}), status=503, headers=headers)
     except Exception as e:
         return https_fn.Response(json.dumps({'error': f'Internal error: {e}'}), status=500, headers=headers)
-
-# (Removed REST API router; MVP uses Firebase SDK on client. Keep only Coze proxy.)

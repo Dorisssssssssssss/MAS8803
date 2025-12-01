@@ -13,76 +13,11 @@ struct CalendarView: View {
         NavigationView {
             ZStack(alignment: .topTrailing) {
                 // Main Content
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Header
-                        headerView
-                        
-                        // Quick Log Section
-                        quickLogSection
-                        
-                        // Today's Intake Record Section
-                        todaysIntakeRecordSection
-                        
-                        // Today's Workout Record Section
-                        todaysWorkoutRecordSection
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                }
-                .background(Color.gray.opacity(0.05))
-                .navigationBarHidden(true)
+                mainContentView
                 
                 // Floating dropdown menu
                 if showingHeaderImagePickerOptions {
-                    VStack(spacing: 12) {
-                        // Camera Button
-                        Button(action: {
-                            imageSourceType = .camera
-                            showingHeaderImagePickerOptions = false
-                            showingImagePicker = true
-                        }) {
-                            Text("Camera")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [
-                                            Color(red: 62/255, green: 129/255, blue: 246/255),
-                                            Color(red: 135/255, green: 93/255, blue: 245/255)
-                                        ]),
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .cornerRadius(20)
-                        }
-                        
-                        // Photo Library Button
-                        Button(action: {
-                            imageSourceType = .photoLibrary
-                            showingHeaderImagePickerOptions = false
-                            showingImagePicker = true
-                        }) {
-                            Text("Photo Library")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Color(red: 239/255, green: 239/255, blue: 239/255))
-                                .cornerRadius(20)
-                        }
-                    }
-                    .padding(16)
-                    .background(Color(red: 245/255, green: 245/255, blue: 245/255))
-                    .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
-                    .frame(width: 200)
-                    .offset(x: -20, y: 80)
-                    .transition(.opacity.combined(with: .scale))
-                    .zIndex(1000)
+                    floatingDropdownMenu
                 }
             }
         }
@@ -92,7 +27,7 @@ struct CalendarView: View {
         }
         .fullScreenCover(isPresented: $showingScanningView) {
             if let image = selectedImage {
-                ScanningView(selectedImage: image, viewModel: viewModel)
+                ScanningView(selectedImage: image, mealType: "Snack", viewModel: viewModel)
             }
         }
         .onChange(of: selectedImage) { oldValue, newValue in
@@ -112,6 +47,81 @@ struct CalendarView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Main Content View
+    private var mainContentView: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                headerView
+                
+                // Quick Log Section
+                quickLogSection
+                
+                // Today's Intake Record Section
+                todaysIntakeRecordSection
+                
+                // Today's Workout Record Section
+                todaysWorkoutRecordSection
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+        }
+        .background(Color.gray.opacity(0.05))
+        .navigationBarHidden(true)
+    }
+    
+    // MARK: - Floating Dropdown Menu
+    private var floatingDropdownMenu: some View {
+        VStack(spacing: 12) {
+            // Camera Button
+            Button(action: {
+                imageSourceType = .camera
+                showingHeaderImagePickerOptions = false
+                showingImagePicker = true
+            }) {
+                Text("Camera")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(red: 62/255, green: 129/255, blue: 246/255),
+                                Color(red: 135/255, green: 93/255, blue: 245/255)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(20)
+            }
+            
+            // Photo Library Button
+            Button(action: {
+                imageSourceType = .photoLibrary
+                showingHeaderImagePickerOptions = false
+                showingImagePicker = true
+            }) {
+                Text("Photo Library")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(red: 239/255, green: 239/255, blue: 239/255))
+                    .cornerRadius(20)
+            }
+        }
+        .padding(16)
+        .background(Color(red: 245/255, green: 245/255, blue: 245/255))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
+        .frame(width: 200)
+        .offset(x: -20, y: 80)
+        .transition(.opacity.combined(with: .scale))
+        .zIndex(1000)
     }
     
     // MARK: - Header View
@@ -217,10 +227,18 @@ struct CalendarView: View {
                 }
             }
             
-            // Food Items - each with its own background
+            // Food Items
             VStack(spacing: 8) {
-                IntakeRecordRow(name: "Apple", quantity: "1")
-                IntakeRecordRow(name: "Tonkotsu Ramen", quantity: "1")
+                if viewModel.todayMeals.isEmpty {
+                    Text("No meals recorded today")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 8)
+                } else {
+                    ForEach(viewModel.todayMeals.flatMap { $0.items }, id: \.name) { item in
+                        IntakeRecordRow(name: item.name, quantity: "\(Int(item.calories)) kcal")
+                    }
+                }
             }
             
             // Nutrition Intake Summary
@@ -233,12 +251,12 @@ struct CalendarView: View {
                     Spacer()
                     
                     HStack(spacing: 2) {
-                        Text("1245")
+                        Text("\(viewModel.totalCaloriesToday)")
                             .font(.system(size: 11))
                             .fontWeight(.semibold)
                             .foregroundColor(Color(red: 62/255, green: 129/255, blue: 246/255))
                         
-                        Text("/ 1800 kcal")
+                        Text("/ \(viewModel.userProfile.dailyCalorieGoal) kcal")
                             .font(.system(size: 11))
                             .fontWeight(.semibold)
                             .foregroundColor(Color(red: 135/255, green: 93/255, blue: 245/255).opacity(0.7))
@@ -250,24 +268,24 @@ struct CalendarView: View {
                     // Protein
                     MacroProgressItem(
                         label: "Protein",
-                        value: "165g",
-                        progress: 0.8,
+                        value: "\(Int(viewModel.totalProteinToday))g",
+                        progress: min(viewModel.totalProteinToday / Double(viewModel.userProfile.proteinGoal), 1.0),
                         color: Color(red: 147/255, green: 51/255, blue: 234/255) // Purple
                     )
                     
                     // Carbs
                     MacroProgressItem(
                         label: "Carbs",
-                        value: "80g",
-                        progress: 0.45,
+                        value: "\(Int(viewModel.totalCarbsToday))g",
+                        progress: min(viewModel.totalCarbsToday / Double(viewModel.userProfile.carbsGoal), 1.0),
                         color: Color(red: 59/255, green: 130/255, blue: 246/255) // Blue
                     )
                     
                     // Fat
                     MacroProgressItem(
                         label: "Fat",
-                        value: "45g",
-                        progress: 0.65,
+                        value: "\(Int(viewModel.totalFatToday))g",
+                        progress: min(viewModel.totalFatToday / Double(viewModel.userProfile.fatGoal), 1.0),
                         color: Color(red: 34/255, green: 197/255, blue: 94/255) // Green
                     )
                 }
@@ -299,30 +317,22 @@ struct CalendarView: View {
                 .fontWeight(.semibold)
             
             VStack(spacing: 12) {
-                // Squats
-                WorkoutItemRow(
-                    title: "Squats",
-                    details: "3 sets x 12 reps",
-                    time: "25mins",
-                    isCompleted: true
-                )
-                
-                // Bench Press
-                WorkoutItemRow(
-                    title: "Bench Press",
-                    details: "3 sets x 10 reps",
-                    time: "20mins",
-                    isCompleted: true
-                )
-                
-                // Deadlift
-                WorkoutItemRow(
-                    title: "Deadlift",
-                    details: "3 sets x 8 reps",
-                    time: nil,
-                    isCompleted: false,
-                    showActionButtons: true
-                )
+                if let exercises = viewModel.todayWorkouts?.exercises, !exercises.isEmpty {
+                    ForEach(exercises, id: \.name) { exercise in
+                        WorkoutItemRow(
+                            title: exercise.name,
+                            details: "\(exercise.sets) sets x \(exercise.reps) reps",
+                            time: exercise.duration != nil ? "\(exercise.duration!)mins" : nil,
+                            isCompleted: exercise.isCompleted,
+                            showActionButtons: false
+                        )
+                    }
+                } else {
+                    Text("No workouts recorded today")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 8)
+                }
             }
         }
         .padding(20)
