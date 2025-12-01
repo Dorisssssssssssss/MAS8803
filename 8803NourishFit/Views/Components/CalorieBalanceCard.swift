@@ -5,17 +5,17 @@ struct CalorieBalanceCard: View {
     @ObservedObject var viewModel: AppViewModel
     
     // Goals - these can be made configurable from backend
-    private let intakeGoal = 2100
+    private var intakeGoal: Int {
+        viewModel.userProfile.dailyCalorieGoal
+    }
     private let consumeGoal = 1500
     
     private var intakeCurrent: Int {
-        // TODO: Replace with actual intake data from backend
-        2500 // Sample data showing over goal
+        viewModel.totalCaloriesToday
     }
     
     private var consumeCurrent: Int {
-        // TODO: Replace with actual consume data from backend
-        500 // Sample data
+        viewModel.calorieBalance?.burned ?? 0
     }
     
     private var intakePercentage: Double {
@@ -169,8 +169,8 @@ struct CalorieSection: View {
 // MARK: - Preview
 #Preview {
     CalorieBalanceCard(viewModel: AppViewModel())
-        .padding()
-        .background(Color.gray.opacity(0.1))
+    .padding()
+    .background(Color.gray.opacity(0.1))
 }
 
 

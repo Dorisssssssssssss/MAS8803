@@ -33,6 +33,9 @@ struct HomeView: View {
                                     onActionTap: { action in
                                         // Handle tip action
                                         print("Tapped action: \(action.title)")
+                                    },
+                                    onRefresh: {
+                                        viewModel.refreshAICoachTip()
                                     }
                                 )
                             }
@@ -69,8 +72,8 @@ struct HomeView: View {
                                     .background(
                                         LinearGradient(
                                             gradient: Gradient(colors: [
-                                                Color(red: 62/255, green: 129/255, blue: 246/255),  // #3E81F6
-                                                Color(red: 135/255, green: 93/255, blue: 245/255)   // #875DF5
+                                                Color(red: 62/255, green: 129/255, blue: 246/255),
+                                                Color(red: 135/255, green: 93/255, blue: 245/255)
                                             ]),
                                             startPoint: .leading,
                                             endPoint: .trailing
@@ -90,18 +93,18 @@ struct HomeView: View {
                                     .foregroundColor(.black)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
-                                    .background(Color(red: 239/255, green: 239/255, blue: 239/255)) // #EFEFEF
+                                    .background(Color(red: 239/255, green: 239/255, blue: 239/255))
                                     .cornerRadius(20)
                             }
                         }
                         .padding(16)
-                        .background(Color(red: 245/255, green: 245/255, blue: 245/255)) // Light grey background
+                        .background(Color(red: 245/255, green: 245/255, blue: 245/255))
                         .cornerRadius(16)
                         .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
                         .frame(width: 200)
-                        .offset(x: -20, y: 80) // Position 30px below camera icon
+                        .offset(x: -20, y: 80)
                         .transition(.opacity.combined(with: .scale))
-                        .zIndex(1000) // Ensure it floats above everything
+                        .zIndex(1000)
                     }
                 }
             }
@@ -112,23 +115,23 @@ struct HomeView: View {
         }
         .fullScreenCover(isPresented: $showingScanningView) {
             if let image = selectedImage {
-                ScanningView(selectedImage: image, viewModel: viewModel)
+                ScanningView(selectedImage: image, mealType: selectedMealType, viewModel: viewModel)
             }
         }
-        .onChange(of: selectedImage) { oldValue, newValue in
+        .onChange(of: selectedImage) { _, newValue in
             if let _ = newValue {
                 // Show scanning view instead of directly calling API
                 showingScanningView = true
             }
         }
-        .onChange(of: showingImagePicker) { oldValue, newValue in
+        .onChange(of: showingImagePicker) { _, newValue in
             if !newValue {
                 // Reset any UI state when picker is dismissed
                 showingImagePickerOptions = false
                 showingHeaderImagePickerOptions = false
             }
         }
-        .onChange(of: showingScanningView) { oldValue, newValue in
+        .onChange(of: showingScanningView) { _, newValue in
             if !newValue {
                 // Clear selected image after scanning view is dismissed
                 selectedImage = nil
@@ -304,3 +307,5 @@ struct ImagePicker: UIViewControllerRepresentable {
 #Preview {
     HomeView(viewModel: AppViewModel())
 }
+
+

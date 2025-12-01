@@ -10,6 +10,10 @@ struct SuggestionsView: View {
     @State private var imageSourceType: UIImagePickerController.SourceType = .camera
     @State private var showingScanningView = false
     
+    private var currentSuggestion: AISuggestionResponse? {
+        viewModel.aiSuggestionDetails
+    }
+    
     var body: some View {
         NavigationView {
             ZStack(alignment: .topTrailing) {
@@ -96,15 +100,15 @@ struct SuggestionsView: View {
         }
         .fullScreenCover(isPresented: $showingScanningView) {
             if let image = selectedImage {
-                ScanningView(selectedImage: image, viewModel: viewModel)
+                ScanningView(selectedImage: image, mealType: "Snack", viewModel: viewModel)
             }
         }
-        .onChange(of: selectedImage) { oldValue, newValue in
+        .onChange(of: selectedImage) { _, newValue in
             if let _ = newValue {
                 showingScanningView = true
             }
         }
-        .onChange(of: showingScanningView) { oldValue, newValue in
+        .onChange(of: showingScanningView) { _, newValue in
             if !newValue {
                 selectedImage = nil
             }
@@ -179,36 +183,39 @@ struct SuggestionsView: View {
                 .font(.headline)
                 .fontWeight(.bold)
             
-            // Subtitle
-            Text("Based on your data analysis, I've customized today's plan for you.")
+            // Introductory Text from AI suggestion
+            Text(currentSuggestion?.message ?? "Based on your data analysis, I've customized today's plan for you.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
             // Training Section
             VStack(alignment: .leading, spacing: 12) {
-                // Section Header
-                HStack(spacing: 8) {
-                    Image(systemName: "dumbbell.fill")
+                HStack(spacing: 12) {
+                    Image(systemName: iconName(for: currentSuggestion?.suggestions.training?.icon, fallback: "dumbbell.fill"))
                         .foregroundColor(.yellow)
                         .font(.body)
                     
-                    Text("Training")
-                        .font(.subheadline)
-                        .fontWeight(.bold)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(currentSuggestion?.suggestions.training?.title ?? "Training Adjustment")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        
+                        Text(currentSuggestion?.suggestions.training?.description ?? "Reduce aerobic exercise by 20 minutes and increase strength training.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
-                // Training Items
+                // Training Items (static sample list)
                 VStack(spacing: 8) {
                     SuggestionItemRow(
                         title: "Squats",
                         details: "3 sets × 12 reps | 25min"
                     )
-                    
                     SuggestionItemRow(
                         title: "Bench Press",
                         details: "3 sets × 10 reps | 20min"
                     )
-                    
                     SuggestionItemRow(
                         title: "Deadlift",
                         details: "3 sets × 8 reps | 20min"
@@ -221,29 +228,31 @@ struct SuggestionsView: View {
             
             // Dietary Section
             VStack(alignment: .leading, spacing: 12) {
-                // Section Header
-                HStack(spacing: 8) {
-                    Image(systemName: "leaf.fill")
+                HStack(spacing: 12) {
+                    Image(systemName: iconName(for: currentSuggestion?.suggestions.diet?.icon, fallback: "apple.fill"))
                         .foregroundColor(.green)
                         .font(.body)
                     
-                    Text("Dietary")
-                        .font(.subheadline)
-                        .fontWeight(.bold)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(currentSuggestion?.suggestions.diet?.title ?? "Dietary Adjustments")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        
+                        Text(currentSuggestion?.suggestions.diet?.description ?? "Increase protein by 15g, reduce carbohydrates by 30g")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
-                // Dietary Items
                 VStack(spacing: 8) {
                     SuggestionItemRow(
                         title: "Protein",
                         details: "100g | 2 Eggs"
                     )
-                    
                     SuggestionItemRow(
                         title: "Fiber",
                         details: "50g | 1 Carrot"
                     )
-                    
                     SuggestionItemRow(
                         title: "Vitamin C",
                         details: "2g | 1 Apple"
@@ -253,13 +262,44 @@ struct SuggestionsView: View {
             .padding(16)
             .background(Color.white)
             .cornerRadius(16)
+            
+            // Why do we recommend this?
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    HStack(spacing: 12) {
+                        Image(systemName: "lightbulb.fill")
+                            .foregroundColor(.yellow)
+                            .font(.title3)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Why do we recommend this?")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            
+                            Text((currentSuggestion?.reasoning?.isEmpty == false ? currentSuggestion?.reasoning : "Click to view detailed analysis") ?? "Click to view detailed analysis")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.gray)
+                        .font(.caption)
+                }
+                .padding(16)
+                .background(Color.white)
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            }
         }
         .padding(20)
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(red: 239/255, green: 245/255, blue: 255/255), // #EFF5FF
-                    Color(red: 250/255, green: 245/255, blue: 255/255)  // #FAF5FF
+                    Color(red: 239/255, green: 245/255, blue: 255/255),
+                    Color(red: 250/255, green: 245/255, blue: 255/255)
                 ]),
                 startPoint: .leading,
                 endPoint: .trailing
@@ -273,7 +313,7 @@ struct SuggestionsView: View {
     private var actionButtonsSection: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                // Accept Button
+                // Accept Button (placeholder)
                 Button(action: {
                     // Accept action
                 }) {
@@ -297,9 +337,9 @@ struct SuggestionsView: View {
                     .cornerRadius(10)
                 }
                 
-                // Regenerate Button
+                // Regenerate Button: use your AI refresh logic
                 Button(action: {
-                    // Regenerate action
+                    viewModel.refreshAICoachTip()
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.clockwise.circle.fill")
@@ -375,10 +415,8 @@ struct SuggestionsView: View {
     }
     
     // MARK: - Why AI Recommended This Section
-    // TODO: This section will be populated with backend data
     private var whyAIRecommendedSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header with match percentage and toggle
             HStack {
                 Text("Why AI Recommended This")
                     .font(.system(size: 13))
@@ -387,15 +425,14 @@ struct SuggestionsView: View {
                 Spacer()
                 
                 HStack(spacing: 8) {
-                    // Gradient text for match percentage
                     Text("92% match")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundStyle(
                             LinearGradient(
                                 gradient: Gradient(colors: [
-                                    Color(red: 62/255, green: 129/255, blue: 246/255),  // #3E81F6
-                                    Color(red: 135/255, green: 93/255, blue: 245/255)   // #875DF5
+                                    Color(red: 62/255, green: 129/255, blue: 246/255),
+                                    Color(red: 135/255, green: 93/255, blue: 245/255)
                                 ]),
                                 startPoint: .leading,
                                 endPoint: .trailing
@@ -412,21 +449,15 @@ struct SuggestionsView: View {
                 }
             }
             
-            // Reason Cards - TODO: Will be populated from backend
             VStack(spacing: 12) {
-                // Card 1: Perfect for Your Schedule
                 ReasonCard(
                     title: "Perfect for Your Schedule",
                     description: "You typically exercise in the night. This gentle yoga routine will help you wake up and set a positive tone for the day."
                 )
-                
-                // Card 2: Low Impact, High Benefit
                 ReasonCard(
                     title: "Low Impact, High Benefit",
                     description: "Based on your current activity level, this workout provides effective stretching without overexertion."
                 )
-                
-                // Card 3: Builds Foundation
                 ReasonCard(
                     title: "Builds Foundation",
                     description: "Improves flexibility and core strength, which will support you as you progress to more intense activities."
@@ -444,8 +475,32 @@ struct SuggestionsView: View {
         formatter.dateFormat = "MMM d"
         return formatter.string(from: date)
     }
+    
+    private func iconName(for icon: String?, fallback: String) -> String {
+        switch icon?.lowercased() {
+        case "dumbbell":
+            return "dumbbell.fill"
+        case "figure.walk":
+            return "figure.walk"
+        case "flame":
+            return "flame.fill"
+        case "bolt":
+            return "bolt.fill"
+        case "clock":
+            return "clock.fill"
+        case "fork.knife":
+            return "fork.knife"
+        case "leaf":
+            return "leaf.fill"
+        case "apple":
+            return "apple.fill"
+        case "cup.and.saucer":
+            return "cup.and.saucer.fill"
+        default:
+            return fallback
+        }
+    }
 }
-
 
 // MARK: - Suggestion Item Row
 struct SuggestionItemRow: View {
@@ -454,9 +509,8 @@ struct SuggestionItemRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Regenerate icon button
             Button(action: {
-                // Regenerate this item
+                // Regenerate this item (placeholder)
                 print("Regenerate \(title)")
             }) {
                 Circle()
@@ -471,7 +525,6 @@ struct SuggestionItemRow: View {
             }
             .buttonStyle(PlainButtonStyle())
             
-            // Title
             Text(title)
                 .font(.system(size: 12))
                 .fontWeight(.bold)
@@ -479,7 +532,6 @@ struct SuggestionItemRow: View {
             
             Spacer()
             
-            // Details
             Text(details)
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -494,15 +546,14 @@ struct ReasonCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Gradient title
             Text(title)
                 .font(.system(size: 13))
                 .fontWeight(.regular)
                 .foregroundStyle(
                     LinearGradient(
                         gradient: Gradient(colors: [
-                            Color(red: 62/255, green: 129/255, blue: 246/255),  // #3E81F6
-                            Color(red: 135/255, green: 93/255, blue: 245/255)   // #875DF5
+                            Color(red: 62/255, green: 129/255, blue: 246/255),
+                            Color(red: 135/255, green: 93/255, blue: 245/255)
                         ]),
                         startPoint: .leading,
                         endPoint: .trailing
@@ -533,8 +584,6 @@ struct CustomizeSuggestionsView: View {
                     .fontWeight(.bold)
                     .padding()
                 
-                // Customization options would go here
-                
                 Spacer()
             }
             .navigationTitle("Customize")
@@ -554,3 +603,5 @@ struct CustomizeSuggestionsView: View {
 #Preview {
     SuggestionsView(viewModel: AppViewModel())
 }
+
+

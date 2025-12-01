@@ -4,6 +4,7 @@ import SwiftUI
 struct AICoachTipCard: View {
     let aiCoachTip: AICoachTip
     let onActionTap: (TipAction) -> Void
+    let onRefresh: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -20,7 +21,7 @@ struct AICoachTipCard: View {
                 Spacer()
                 
                 Button("See another option") {
-                    // Handle see another option
+                    onRefresh()
                 }
                 .font(.caption)
                 .foregroundColor(.blue)
@@ -50,7 +51,8 @@ struct AICoachTipCard: View {
                 TipAction(title: "Take a Walk", type: .walk)
             ]
         ),
-        onActionTap: { _ in }
+        onActionTap: { _ in },
+        onRefresh: {}
     )
     .padding()
     .background(Color.gray.opacity(0.1))

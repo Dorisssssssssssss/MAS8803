@@ -13,74 +13,11 @@ struct SettingsView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             // Main Content
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    headerView
-                    
-                    // Card #1: Weekly Training Overview
-                    WeeklyTrainingOverviewCard()
-                    
-                    // Card #2: Weekly Calorie Overview
-                    WeeklyCalorieOverviewCard()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 100) // Space for tab bar
-            }
-            .background(Color.gray.opacity(0.05))
-            .navigationBarHidden(true)
+            mainContentView
             
             // Floating dropdown menu
             if showingHeaderImagePickerOptions {
-                VStack(spacing: 12) {
-                    // Camera Button
-                    Button(action: {
-                        imageSourceType = .camera
-                        showingHeaderImagePickerOptions = false
-                        showingImagePicker = true
-                    }) {
-                        Text("Camera")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        Color(red: 62/255, green: 129/255, blue: 246/255),
-                                        Color(red: 135/255, green: 93/255, blue: 245/255)
-                                    ]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(20)
-                    }
-                    
-                    // Photo Library Button
-                    Button(action: {
-                        imageSourceType = .photoLibrary
-                        showingHeaderImagePickerOptions = false
-                        showingImagePicker = true
-                    }) {
-                        Text("Photo Library")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color(red: 239/255, green: 239/255, blue: 239/255))
-                            .cornerRadius(20)
-                    }
-                }
-                .padding(16)
-                .background(Color(red: 245/255, green: 245/255, blue: 245/255))
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
-                .frame(width: 200)
-                .offset(x: -20, y: 80)
-                .transition(.opacity.combined(with: .scale))
-                .zIndex(1000)
+                floatingDropdownMenu
             }
         }
         .sheet(isPresented: $showingImagePicker) {
@@ -89,7 +26,7 @@ struct SettingsView: View {
         }
         .fullScreenCover(isPresented: $showingScanningView) {
             if let image = selectedImage {
-                ScanningView(selectedImage: image, viewModel: viewModel)
+                ScanningView(selectedImage: image, mealType: "Snack", viewModel: viewModel)
             }
         }
         .onChange(of: selectedImage) { oldValue, newValue in
@@ -109,6 +46,79 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Main Content View
+    private var mainContentView: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                headerView
+                
+                // Card #1: Weekly Training Overview
+                WeeklyTrainingOverviewCard(viewModel: viewModel)
+                
+                // Card #2: Weekly Calorie Overview
+                WeeklyCalorieOverviewCard(viewModel: viewModel)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 100) // Space for tab bar
+        }
+        .background(Color.gray.opacity(0.05))
+        .navigationBarHidden(true)
+    }
+    
+    // MARK: - Floating Dropdown Menu
+    private var floatingDropdownMenu: some View {
+        VStack(spacing: 12) {
+            // Camera Button
+            Button(action: {
+                imageSourceType = .camera
+                showingHeaderImagePickerOptions = false
+                showingImagePicker = true
+            }) {
+                Text("Camera")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(red: 62/255, green: 129/255, blue: 246/255),
+                                Color(red: 135/255, green: 93/255, blue: 245/255)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(20)
+            }
+            
+            // Photo Library Button
+            Button(action: {
+                imageSourceType = .photoLibrary
+                showingHeaderImagePickerOptions = false
+                showingImagePicker = true
+            }) {
+                Text("Photo Library")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(red: 239/255, green: 239/255, blue: 239/255))
+                    .cornerRadius(20)
+            }
+        }
+        .padding(16)
+        .background(Color(red: 245/255, green: 245/255, blue: 245/255))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 4)
+        .frame(width: 200)
+        .offset(x: -20, y: 80)
+        .transition(.opacity.combined(with: .scale))
+        .zIndex(1000)
     }
     
     // MARK: - Header View
@@ -173,17 +183,28 @@ struct SettingsView: View {
 
 // MARK: - Card #1: Weekly Training Overview
 struct WeeklyTrainingOverviewCard: View {
-    // TODO: Replace with actual training data from backend
-    // Data represents calories burned during training each day
-    let trainingData = [
-        ("Mon", 45),
-        ("Tue", 55),
-        ("Wed", 40),
-        ("Thu", 60),
-        ("Fri", 50),
-        ("Sat", 65),
-        ("Sun", 55)
-    ]
+    @ObservedObject var viewModel: AppViewModel
+    
+    // Generate data from viewModel.weeklyWorkoutHistory
+    var trainingData: [(String, Int)] {
+        let history = viewModel.weeklyWorkoutHistory
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E" // Mon, Tue, etc.
+        
+        // Generate last 7 days
+        var data: [(String, Int)] = []
+        let today = Date()
+        for i in 0..<7 {
+            if let date = calendar.date(byAdding: .day, value: -6 + i, to: today) {
+                let dayName = formatter.string(from: date)
+                // Find matching data
+                let duration = history.first(where: { calendar.isDate($0.date, inSameDayAs: date) })?.duration ?? 0
+                data.append((dayName, duration))
+            }
+        }
+        return data
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -283,9 +304,25 @@ struct WeeklyTrainingOverviewCard: View {
 
 // MARK: - Card #2: Weekly Intake Overview
 struct WeeklyCalorieOverviewCard: View {
-    // TODO: Replace with actual intake data from backend
-    let intakeData = [1700, 2000, 1600, 2150, 1900, 2300, 2000]
-    let targetCalories = 2400
+    @ObservedObject var viewModel: AppViewModel
+    
+    var intakeData: [Int] {
+        if viewModel.weeklyIntakeHistory.isEmpty {
+            return [1800, 1950, 1700, 2100, 1850, 2200, 0]
+        }
+        return viewModel.weeklyIntakeHistory
+    }
+    
+    let targetCalories = 2100
+    
+    var averageIntake: Int {
+        let sum = intakeData.reduce(0, +)
+        return intakeData.isEmpty ? 0 : sum / intakeData.count
+    }
+    
+    var variance: Int {
+        averageIntake - targetCalories
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -404,7 +441,7 @@ struct WeeklyCalorieOverviewCard: View {
                     Text("Weekly Average")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("2,429 cal/day")
+                    Text("\(averageIntake) cal/day")
                         .font(.system(size: 13))
                         .fontWeight(.semibold)
                         .foregroundColor(Color(red: 99/255, green: 102/255, blue: 241/255)) // #6366F1
@@ -421,9 +458,10 @@ struct WeeklyCalorieOverviewCard: View {
                     Text("Target")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("2,400 cal/day")
+                    Text("\(targetCalories) cal/day")
                         .font(.system(size: 13))
                         .fontWeight(.semibold)
+                        .foregroundColor(.primary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 
@@ -437,10 +475,10 @@ struct WeeklyCalorieOverviewCard: View {
                     Text("Variance")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("+29 cal/day")
+                    Text("\(variance > 0 ? "+" : "")\(variance) cal/day")
                         .font(.system(size: 13))
                         .fontWeight(.semibold)
-                        .foregroundColor(Color(red: 99/255, green: 102/255, blue: 241/255)) // #6366F1
+                        .foregroundColor(variance > 0 ? .red : .green)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
